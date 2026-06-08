@@ -1,0 +1,4 @@
+@import "tailwindcss";
+
+/* Ini adalah pengganti mutlak untuk darkMode: 'class' di Tailwind v4 */
+@variant dark (&:where(.dark, .dark *));

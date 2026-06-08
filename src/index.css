@@ -1,0 +1,5 @@
+@import "tailwindcss";
+
+/* BARIS INI WAJIB ADA: Memberitahu Tailwind v4 agar mengaktifkan mode gelap 
+   hanya ketika ada class="dark" di tag HTML (yang dikirim oleh React Anda) */
+@variant dark (&:where(.dark, .dark *));
