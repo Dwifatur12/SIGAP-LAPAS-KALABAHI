@@ -23,6 +23,7 @@ const CUSTOM_FIREBASE_CONFIG = {
   messagingSenderId: "270232328446",
   appId: "1:270232328446:web:e0399bfe337ff07df9adaf"
 };  
+
 let app, auth, db, appId = 'default-app-id';
 try {
   const firebaseConfig = CUSTOM_FIREBASE_CONFIG.apiKey 
@@ -40,34 +41,7 @@ try {
 // ==========================================
 // MOCK DATA: DAFTAR ARSIP SURAT
 // ==========================================
-const MOCK_DOC_DATA = [
-  {
-    id: "DOC-2405-001",
-    nomorUrut: 1,
-    jenisSurat: "Surat Masuk",
-    nomorBerkas: "W22.PAS.PAS.4.PK.01.04-01",
-    alamatPenerima: "Kakanwil Kemenkumham NTT",
-    tanggal: new Date().toISOString().split('T')[0],
-    perihal: "Laporan Bulanan Lapas Kalabahi",
-    nomorPetunjuk: "01.04",
-    updatedBy: "Sistem",
-    isPinned: true,
-    history: []
-  },
-  {
-    id: "DOC-2405-002",
-    nomorUrut: 1,
-    jenisSurat: "Surat Keluar",
-    nomorBerkas: "W22.PAS.PAS.4.UM.01.01-102",
-    alamatPenerima: "Dinas Kesehatan Kab. Alor",
-    tanggal: new Date().toISOString().split('T')[0],
-    perihal: "Permohonan Bantuan Tenaga Medis",
-    nomorPetunjuk: "01.01",
-    updatedBy: "Sistem",
-    isPinned: false,
-    history: []
-  }
-];
+const MOCK_DOC_DATA = [];
 
 // ==========================================
 // FUNGSI HELPER GLOBAL
@@ -152,7 +126,7 @@ export default function App() {
   };
 
   const [formData, setFormData] = useState({
-    jenisSurat: 'Surat Masuk',
+    jenisSurat: 'Surat Keluar',
     nomorUrut: 1,
     nomorBerkas: '', 
     alamatPenerima: '', 
@@ -167,8 +141,8 @@ export default function App() {
     const localISODate = (new Date(now - tzOffset)).toISOString().split('T')[0];
     
     setFormData({
-      jenisSurat: 'Surat Masuk',
-      nomorUrut: getNextNomorUrut('Surat Masuk', documents),
+      jenisSurat: 'Surat Keluar',
+      nomorUrut: getNextNomorUrut('Surat Keluar', documents),
       nomorBerkas: '', 
       alamatPenerima: '', 
       tanggal: localISODate, 
@@ -320,23 +294,26 @@ export default function App() {
   const filteredAndSortedDocs = useMemo(() => {
     let result = timeFilteredDocs.filter(d => {
       const searchLower = searchTerm.toLowerCase();
-      return d.nomorBerkas.toLowerCase().includes(searchLower) || 
-             d.alamatPenerima.toLowerCase().includes(searchLower) ||
-             (d.perihal && d.perihal.toLowerCase().includes(searchLower)) ||
-             d.id.toLowerCase().includes(searchLower);
+      
+      // Filter Jenis Surat
+      const isTypeMatch = sortBy === 'Surat Masuk' ? d.jenisSurat === 'Surat Masuk' :
+                          sortBy === 'Surat Keluar' ? d.jenisSurat === 'Surat Keluar' : true;
+      
+      const isSearchMatch = d.nomorBerkas.toLowerCase().includes(searchLower) || 
+                            d.alamatPenerima.toLowerCase().includes(searchLower) ||
+                            (d.perihal && d.perihal.toLowerCase().includes(searchLower)) ||
+                            d.id.toLowerCase().includes(searchLower);
+                            
+      return isTypeMatch && isSearchMatch;
     });
 
     switch(sortBy) {
       case 'Terlama':
         result.sort((a, b) => new Date(a.tanggal) - new Date(b.tanggal));
         break;
-      case 'Surat Masuk':
-        result.sort((a, b) => a.jenisSurat === 'Surat Masuk' ? -1 : 1);
-        break;
-      case 'Surat Keluar':
-        result.sort((a, b) => a.jenisSurat === 'Surat Keluar' ? -1 : 1);
-        break;
       case 'Terbaru':
+      case 'Surat Masuk':
+      case 'Surat Keluar':
       default:
         result.sort((a, b) => new Date(b.tanggal) - new Date(a.tanggal));
         break;
@@ -673,8 +650,8 @@ export default function App() {
         </div>
 
         {/* DASHBOARD STATISTIK */}
-        <div className="max-w-4xl mx-auto mb-10 animate-in fade-in zoom-in duration-500 w-full">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="max-w-5xl mx-auto mb-10 animate-in fade-in zoom-in duration-500 w-full">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="glass-card p-6 md:p-8 rounded-[2.5rem] shadow-xl border border-emerald-500/20 relative overflow-hidden flex items-center gap-6 group hover:shadow-2xl hover:border-emerald-500/40 transition-all">
               <div className="w-20 h-20 bg-emerald-100 dark:bg-emerald-900/40 rounded-full flex items-center justify-center shrink-0 border border-emerald-200 dark:border-emerald-800/50 group-hover:scale-110 transition-transform">
                 <Inbox size={32} className="text-emerald-700 dark:text-emerald-400" />
@@ -698,6 +675,20 @@ export default function App() {
                 <div className="flex items-baseline gap-2">
                   <p className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-br from-orange-600 to-orange-400 leading-none">
                     {documents.filter(d => d.jenisSurat === 'Surat Keluar').length}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="glass-card p-6 md:p-8 rounded-[2.5rem] shadow-xl border border-blue-500/20 relative overflow-hidden flex items-center gap-6 group hover:shadow-2xl hover:border-blue-500/40 transition-all">
+              <div className="w-20 h-20 bg-blue-100 dark:bg-blue-900/40 rounded-full flex items-center justify-center shrink-0 border border-blue-200 dark:border-blue-800/50 group-hover:scale-110 transition-transform">
+                <FileText size={32} className="text-blue-600 dark:text-blue-400" />
+              </div>
+              <div className="text-left relative z-10 flex-1">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">Total Arsip Keseluruhan</p>
+                <div className="flex items-baseline gap-2">
+                  <p className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-br from-blue-600 to-blue-400 leading-none">
+                    {documents.length}
                   </p>
                 </div>
               </div>
@@ -864,11 +855,8 @@ export default function App() {
                   <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${getStatusBadgeClass(docItem.jenisSurat).split(' ')[0]}`}></div>
 
                   {/* NOMOR URUT */}
-                  <div className="absolute top-5 right-6 z-10 transition-all duration-300 group-hover:opacity-0 flex items-baseline gap-1 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm pointer-events-none">
-                    <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">No.</span>
-                    <span className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-br from-emerald-600 to-teal-500 dark:from-emerald-400 dark:to-teal-300">
-                      {docItem.nomorUrut}
-                    </span>
+                  <div className="absolute top-5 right-6 z-10 transition-opacity duration-300 group-hover:opacity-0 text-4xl font-black text-slate-300/50 dark:text-slate-700/50 drop-shadow-sm pointer-events-none">
+                    #{ docItem.nomorUrut }
                   </div>
 
                   {/* TOMBOL AKSI SUPER ADMIN */}
@@ -1061,10 +1049,9 @@ export default function App() {
                       <p className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5 mb-1"><CalendarDays size={12}/> Tanggal</p>
                       <p className="text-sm font-black text-slate-900 dark:text-white">{formatDateIndo(selectedDoc.tanggal)}</p>
                     </div>
-                    <div className="bg-emerald-50 dark:bg-emerald-900/20 p-4 rounded-2xl border border-emerald-200 dark:border-emerald-800/50 shadow-sm relative overflow-hidden">
-                      <div className="absolute -right-2 -bottom-2 text-emerald-200/50 dark:text-emerald-800/30"><ListOrdered size={48}/></div>
-                      <p className="text-[10px] font-black uppercase text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5 mb-1 relative z-10"><ListOrdered size={12}/> No. Urut</p>
-                      <p className="text-xl font-black text-emerald-900 dark:text-emerald-100 relative z-10">{selectedDoc.nomorUrut}</p>
+                    <div className="bg-white/60 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                      <p className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5 mb-1"><ListOrdered size={12}/> No. Urut</p>
+                      <p className="text-sm font-black text-slate-900 dark:text-white">#{selectedDoc.nomorUrut}</p>
                     </div>
                     <div className="bg-white/60 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
                       <p className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5 mb-1"><FileText size={12}/> No. Berkas</p>
@@ -1148,8 +1135,8 @@ export default function App() {
                       className="w-full px-5 py-4 premium-input rounded-2xl text-xs font-bold outline-none transition-all text-slate-900 dark:text-white"
                       disabled={editingDoc !== null}
                     >
-                      <option value="Surat Masuk">Surat Masuk</option>
                       <option value="Surat Keluar">Surat Keluar</option>
+                      <option value="Surat Masuk">Surat Masuk</option>
                     </select>
                   </div>
                   <div className="space-y-1.5">
