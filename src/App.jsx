@@ -15,7 +15,7 @@ import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc } from 'fi
 // ==========================================
 // FIREBASE SETUP
 // ==========================================
-const CUSTOM_FIREBASE_CONFIG = {};
+const CUSTOM_FIREBASE_CONFIG = {
   apiKey: "AIzaSyBBH-DEzioBJNXczvi_q8mIjYnUnSnHx9w",
   authDomain: "sigap-lapas-kalabahi.firebaseapp.com",
   projectId: "sigap-lapas-kalabahi",
