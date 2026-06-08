@@ -16,13 +16,7 @@ import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc } from 'fi
 // FIREBASE SETUP
 // ==========================================
 const CUSTOM_FIREBASE_CONFIG = {};
-  apiKey: "AIzaSyBBH-DEzioBJNXczvi_q8mIjYnUnSnHx9w",
-  authDomain: "sigap-lapas-kalabahi.firebaseapp.com",
-  projectId: "sigap-lapas-kalabahi",
-  storageBucket: "sigap-lapas-kalabahi.firebasestorage.app",
-  messagingSenderId: "270232328446",
-  appId: "1:270232328446:web:e0399bfe337ff07df9adaf"
-};
+  
 let app, auth, db, appId = 'default-app-id';
 try {
   const firebaseConfig = CUSTOM_FIREBASE_CONFIG.apiKey 
