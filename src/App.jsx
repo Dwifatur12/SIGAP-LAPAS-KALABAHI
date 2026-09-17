@@ -39,20 +39,9 @@ try {
 }
 
 // ==========================================
-// MOCK DATA: 10 CONTOH SURAT KELUAR
+// MOCK DATA: DAFTAR ARSIP SURAT
 // ==========================================
-const MOCK_DOC_DATA = [
-  { id: "DOC-2605-010", nomorUrut: 10, jenisSurat: "Surat Keluar", nomorBerkas: "W22.PAS.PAS.4.UM.01.01-010", alamatPenerima: "Kantor Wilayah Kemenkumham NTT", tanggal: "2026-05-26", perihal: "Laporan Situasi Keamanan Harian", nomorPetunjuk: "01.01", updatedBy: "Sistem", isPinned: false, history: [] },
-  { id: "DOC-2605-009", nomorUrut: 9, jenisSurat: "Surat Keluar", nomorBerkas: "W22.PAS.PAS.4.PK.01.04-009", alamatPenerima: "Dinas Kesehatan Kabupaten Alor", tanggal: "2026-05-25", perihal: "Permohonan Vaksinasi Warga Binaan", nomorPetunjuk: "01.04", updatedBy: "Sistem", isPinned: false, history: [] },
-  { id: "DOC-2605-008", nomorUrut: 8, jenisSurat: "Surat Keluar", nomorBerkas: "W22.PAS.PAS.4.KU.02.02-008", alamatPenerima: "KPPN Kalabahi", tanggal: "2026-05-24", perihal: "Penyampaian LPJ Bendahara Pengeluaran", nomorPetunjuk: "02.02", updatedBy: "Sistem", isPinned: false, history: [] },
-  { id: "DOC-2605-007", nomorUrut: 7, jenisSurat: "Surat Keluar", nomorBerkas: "W22.PAS.PAS.4.UM.01.01-007", alamatPenerima: "Kepolisian Resor Alor", tanggal: "2026-05-23", perihal: "Koordinasi Pengamanan Hari Raya", nomorPetunjuk: "01.01", updatedBy: "Sistem", isPinned: false, history: [] },
-  { id: "DOC-2605-006", nomorUrut: 6, jenisSurat: "Surat Keluar", nomorBerkas: "W22.PAS.PAS.4.PK.05.02-006", alamatPenerima: "Pengadilan Negeri Kalabahi", tanggal: "2026-05-22", perihal: "Pengiriman Narapidana Sidang Online", nomorPetunjuk: "05.02", updatedBy: "Sistem", isPinned: false, history: [] },
-  { id: "DOC-2605-005", nomorUrut: 5, jenisSurat: "Surat Keluar", nomorBerkas: "W22.PAS.PAS.4.OT.01.02-005", alamatPenerima: "Dinas Sosial Kabupaten Alor", tanggal: "2026-05-21", perihal: "Permohonan Data Penyuluhan Sosial", nomorPetunjuk: "01.02", updatedBy: "Sistem", isPinned: false, history: [] },
-  { id: "DOC-2605-004", nomorUrut: 4, jenisSurat: "Surat Keluar", nomorBerkas: "W22.PAS.PAS.4.UM.01.01-004", alamatPenerima: "Kodim 1622 Alor", tanggal: "2026-05-20", perihal: "Undangan Kegiatan Pembinaan Bersama", nomorPetunjuk: "01.01", updatedBy: "Sistem", isPinned: false, history: [] },
-  { id: "DOC-2605-003", nomorUrut: 3, jenisSurat: "Surat Keluar", nomorBerkas: "W22.PAS.PAS.4.PK.01.01-003", alamatPenerima: "Puskesmas Kalabahi", tanggal: "2026-05-19", perihal: "Permohonan Layanan Kesehatan Rutin", nomorPetunjuk: "01.01", updatedBy: "Sistem", isPinned: false, history: [] },
-  { id: "DOC-2605-002", nomorUrut: 2, jenisSurat: "Surat Keluar", nomorBerkas: "W22.PAS.PAS.4.UM.02.03-002", alamatPenerima: "Bank Rakyat Indonesia Cabang Kalabahi", tanggal: "2026-05-18", perihal: "Rekonsiliasi Rekening Titipan Klien", nomorPetunjuk: "02.03", updatedBy: "Sistem", isPinned: false, history: [] },
-  { id: "DOC-2605-001", nomorUrut: 1, jenisSurat: "Surat Keluar", nomorBerkas: "W22.PAS.PAS.4.UM.01.01-001", alamatPenerima: "Kejaksaan Negeri Alor", tanggal: "2026-05-17", perihal: "Pemberitahuan Eksekusi Putusan Pengadilan", nomorPetunjuk: "01.01", updatedBy: "Sistem", isPinned: true, history: [] }
-];
+const MOCK_DOC_DATA = [];
 
 // ==========================================
 // FUNGSI HELPER GLOBAL
