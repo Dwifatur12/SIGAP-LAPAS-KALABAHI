@@ -15,14 +15,14 @@ import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc } from 'fi
 // ==========================================
 // FIREBASE SETUP
 // ==========================================
-const CUSTOM_FIREBASE_CONFIG = {};
+const CUSTOM_FIREBASE_CONFIG = {
   apiKey: "AIzaSyBBH-DEzioBJNXczvi_q8mIjYnUnSnHx9w",
   authDomain: "sigap-lapas-kalabahi.firebaseapp.com",
   projectId: "sigap-lapas-kalabahi",
   storageBucket: "sigap-lapas-kalabahi.firebasestorage.app",
   messagingSenderId: "270232328446",
   appId: "1:270232328446:web:e0399bfe337ff07df9adaf"
-};
+};  
 
 let app, auth, db, appId = 'default-app-id';
 try {
@@ -162,8 +162,6 @@ export default function App() {
   const [sortBy, setSortBy] = useState('Terbaru');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
-  const [customItemsInput, setCustomItemsInput] = useState('');
-  const [showCustomInputModal, setShowCustomInputModal] = useState(false);
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
@@ -176,7 +174,12 @@ export default function App() {
     const initAuth = async () => {
       try {
         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-          await signInWithCustomToken(auth, __initial_auth_token);
+          try {
+            await signInWithCustomToken(auth, __initial_auth_token);
+          } catch (tokenErr) {
+            console.warn("Custom token mismatch, fallback to anonymous", tokenErr);
+            await signInAnonymously(auth);
+          }
         } else {
           await signInAnonymously(auth);
         }
@@ -195,6 +198,7 @@ export default function App() {
       if (fetchedDocs.length > 0) {
         setDocuments(fetchedDocs);
       } else {
+        // First time setup
         MOCK_DOC_DATA.forEach(mockDoc => {
           setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'laskar_docs', mockDoc.id), mockDoc);
         });
@@ -303,33 +307,43 @@ export default function App() {
       const isSearchMatch = d.nomorBerkas.toLowerCase().includes(searchLower) || 
                             d.alamatPenerima.toLowerCase().includes(searchLower) ||
                             (d.perihal && d.perihal.toLowerCase().includes(searchLower)) ||
-                            d.id.toLowerCase().includes(searchLower);
+                            d.id.toLowerCase().includes(searchLower) ||
+                            (d.nomorUrut && d.nomorUrut.toString().includes(searchLower)); // Tambah pencarian berdasar No Urut
                             
       return isTypeMatch && isSearchMatch;
     });
 
-    // PENGURUTAN BERDASARKAN NOMOR URUT DAN TANGGAL
-    result.sort((a, b) => {
-      const numA = Number(a.nomorUrut) || 0;
-      const numB = Number(b.nomorUrut) || 0;
-      
-      // Jika nomor urut berbeda, urutkan berdasarkan nomor urut (Prioritas)
-      if (numA !== numB) {
-        return sortBy === 'Terlama' ? numA - numB : numB - numA;
-      }
-      
-      // Jika nomor urut sama, urutkan berdasarkan tanggal (Cadangan)
-      return sortBy === 'Terlama' ? new Date(a.tanggal) - new Date(b.tanggal) : new Date(b.tanggal) - new Date(a.tanggal);
-    });
+    switch(sortBy) {
+      case 'Terlama':
+        result.sort((a, b) => new Date(a.tanggal) - new Date(b.tanggal));
+        break;
+      case 'Terbaru':
+        result.sort((a, b) => new Date(b.tanggal) - new Date(a.tanggal));
+        break;
+      case 'Surat Masuk':
+      case 'Surat Keluar':
+      case 'Nomor Urut':
+      default:
+         // Default sorting diubah: Sortir berdasarkan nomorUrut DESC (tertinggi/terbaru di atas)
+         // Fallback ke tanggal jika nomor urut tidak ada atau sama
+         result.sort((a, b) => {
+            const numA = Number(a.nomorUrut) || 0;
+            const numB = Number(b.nomorUrut) || 0;
+            if (numA !== numB) return numB - numA; 
+            return new Date(b.tanggal) - new Date(a.tanggal);
+         });
+        break;
+    }
 
     result.sort((a, b) => (b.isPinned === true ? 1 : 0) - (a.isPinned === true ? 1 : 0));
     return result;
   }, [searchTerm, sortBy, timeFilteredDocs]);
 
   // Pagination
-  const totalPages = Math.ceil(filteredAndSortedDocs.length / itemsPerPage);
-  const activePage = Number(currentPage) || 1;
-  const paginatedDocs = filteredAndSortedDocs.slice((activePage - 1) * itemsPerPage, activePage * itemsPerPage);
+  const safeItemsPerPage = isNaN(itemsPerPage) ? 10 : itemsPerPage;
+  const totalPages = Math.ceil(filteredAndSortedDocs.length / safeItemsPerPage);
+  const safePage = Number(currentPage) || 1;
+  const paginatedDocs = filteredAndSortedDocs.slice((safePage - 1) * safeItemsPerPage, safePage * safeItemsPerPage);
 
   // Fungsi Autentikasi
   const handleLogin = (e) => {
@@ -798,10 +812,11 @@ export default function App() {
                 onChange={(e) => setSortBy(e.target.value)}
                 className="w-full pl-10 pr-8 py-4 bg-white/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl text-[11px] font-bold uppercase tracking-wide outline-none appearance-none cursor-pointer transition-all text-slate-900 dark:text-white"
               >
-                <option value="Terbaru">Terbaru</option>
-                <option value="Terlama">Terlama</option>
-                <option value="Surat Masuk">Surat Masuk</option>
-                <option value="Surat Keluar">Surat Keluar</option>
+                <option value="Nomor Urut">Nomor Urut (Default)</option>
+                <option value="Terbaru">Tanggal Terbaru</option>
+                <option value="Terlama">Tanggal Terlama</option>
+                <option value="Surat Masuk">Hanya S. Masuk</option>
+                <option value="Surat Keluar">Hanya S. Keluar</option>
               </select>
               <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none rotate-90" size={14}/>
             </div>
@@ -855,10 +870,10 @@ export default function App() {
                   {/* Status Line Indicator */}
                   <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${getStatusBadgeClass(docItem.jenisSurat).split(' ')[0]}`}></div>
 
-                  {/* DESAIN NOMOR URUT SOLID DAN MENCILOK */}
-                  <div className={`absolute top-5 right-6 z-10 transition-opacity duration-300 group-hover:opacity-0 flex flex-col items-center justify-center w-12 h-12 rounded-xl shadow-md pointer-events-none ${docItem.jenisSurat === 'Surat Masuk' ? 'bg-emerald-600 text-white' : 'bg-orange-600 text-white'}`}>
-                    <span className="text-[8px] font-black uppercase tracking-widest opacity-80 leading-none mt-1">No.</span>
-                    <span className="text-xl font-black leading-none">{docItem.nomorUrut}</span>
+                  {/* NOMOR URUT / NOMOR AGENDA */}
+                  <div className="absolute top-5 right-6 z-10 transition-opacity duration-300 group-hover:opacity-10 text-5xl font-black text-emerald-500 dark:text-emerald-400 drop-shadow-md pointer-events-none flex flex-col items-end">
+                    <span className="text-[9px] uppercase tracking-[0.3em] font-black text-emerald-700 dark:text-emerald-300 mb-[-5px]">No. Agenda</span>
+                    #{ docItem.nomorUrut }
                   </div>
 
                   {/* TOMBOL AKSI SUPER ADMIN */}
@@ -930,67 +945,88 @@ export default function App() {
         {/* PAGINATION CONTROLS */}
         {filteredAndSortedDocs.length > 0 && (
           <div className={`mt-auto pt-6 flex justify-between items-center gap-4 glass-card p-4 rounded-[2rem] w-full ${isMobileView ? 'flex-col' : 'flex-col sm:flex-row'}`}>
-            <div className="flex items-center gap-3">
-              <ListOrdered size={18} className="text-slate-400"/>
-              <span className="text-[11px] font-black uppercase tracking-widest text-slate-500">Tampilkan:</span>
-              <select 
-                value={[10, 20, 30, 40, 50].includes(itemsPerPage) ? itemsPerPage : 'custom'} 
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (val === 'custom') {
-                    setShowCustomInputModal(true);
-                  } else {
-                    setItemsPerPage(Number(val));
-                  }
-                }}
-                className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs font-bold outline-none cursor-pointer text-slate-800 dark:text-white"
-              >
-                <option value={10}>10</option>
-                <option value={20}>20</option>
-                <option value={30}>30</option>
-                <option value={40}>40</option>
-                <option value={50}>50</option>
-                <option value="custom">Custom ({itemsPerPage})</option>
-              </select>
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+              <ListOrdered size={18} className="text-slate-400 shrink-0"/>
+              <span className="text-[11px] font-black uppercase tracking-widest text-slate-500 shrink-0">Tampilkan:</span>
+              
+              {itemsPerPage === 'custom' ? (
+                <div className="flex items-center gap-2">
+                  <input 
+                    type="number" 
+                    min="1" 
+                    max="1000"
+                    placeholder="Jml..."
+                    className="w-16 bg-white dark:bg-slate-900 border border-emerald-500 rounded-xl px-2 py-1.5 text-xs font-bold outline-none text-slate-800 dark:text-white"
+                    onBlur={(e) => {
+                      const val = parseInt(e.target.value);
+                      if (!isNaN(val) && val > 0) setItemsPerPage(val);
+                      else setItemsPerPage(10);
+                    }}
+                    onKeyDown={(e) => {
+                       if (e.key === 'Enter') {
+                          const val = parseInt(e.currentTarget.value);
+                          if (!isNaN(val) && val > 0) setItemsPerPage(val);
+                          else setItemsPerPage(10);
+                       }
+                    }}
+                    autoFocus
+                  />
+                  <button onClick={() => setItemsPerPage(10)} className="p-1.5 bg-slate-200 dark:bg-slate-800 rounded-lg text-slate-500 hover:text-rose-500"><X size={14}/></button>
+                </div>
+              ) : (
+                <select 
+                  value={itemsPerPage} 
+                  onChange={(e) => {
+                     const val = e.target.value;
+                     if (val === 'custom') setItemsPerPage('custom');
+                     else setItemsPerPage(Number(val));
+                  }}
+                  className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs font-bold outline-none cursor-pointer text-slate-800 dark:text-white"
+                >
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={30}>30</option>
+                  <option value={40}>40</option>
+                  <option value={50}>50</option>
+                  <option value="custom">Custom...</option>
+                </select>
+              )}
             </div>
             
             <div className="flex items-center gap-3">
               <button 
-                disabled={activePage <= 1}
-                onClick={() => setCurrentPage(activePage - 1)}
+                disabled={Number(currentPage) <= 1 || currentPage === ''}
+                onClick={() => setCurrentPage(p => (Number(p) || 1) - 1)}
                 className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-[10px] font-black uppercase tracking-widest disabled:opacity-50 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors flex items-center gap-1"
               >
                 <ChevronRight size={14} className="rotate-180"/> Prev
               </button>
-              
-              <div className="text-xs font-bold text-slate-600 dark:text-slate-400 flex items-center gap-2">
-                Hal
+              <span className="text-xs font-bold text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
+                Hal 
                 <input 
-                  type="number"
-                  min={1}
-                  max={totalPages || 1}
+                  type="number" 
                   value={currentPage}
                   onChange={(e) => {
                     const val = e.target.value;
-                    if (val === '') {
-                      setCurrentPage('');
-                    } else {
-                      let num = parseInt(val, 10);
-                      if (num > totalPages) num = totalPages;
-                      setCurrentPage(num);
-                    }
+                    setCurrentPage(val === '' ? '' : parseInt(val));
                   }}
-                  onBlur={() => {
-                    if (currentPage === '' || currentPage < 1) setCurrentPage(1);
+                  onBlur={(e) => {
+                    const val = parseInt(e.target.value);
+                    if (isNaN(val) || val < 1) setCurrentPage(1);
+                    else if (val > totalPages) setCurrentPage(totalPages);
                   }}
-                  className="w-14 text-center py-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 text-slate-900 dark:text-white"
-                />
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') e.currentTarget.blur();
+                  }}
+                  min="1"
+                  max={totalPages || 1}
+                  className="w-12 px-1 py-1 text-center bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 text-slate-900 dark:text-white"
+                /> 
                 dari {totalPages || 1}
-              </div>
-
+              </span>
               <button 
-                disabled={activePage >= totalPages || totalPages === 0}
-                onClick={() => setCurrentPage(activePage + 1)}
+                disabled={Number(currentPage) >= totalPages || totalPages === 0 || currentPage === ''}
+                onClick={() => setCurrentPage(p => (Number(p) || 1) + 1)}
                 className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-[10px] font-black uppercase tracking-widest disabled:opacity-50 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors flex items-center gap-1"
               >
                 Next <ChevronRight size={14}/>
@@ -999,39 +1035,6 @@ export default function App() {
           </div>
         )}
       </main>
-
-      {/* MODAL INPUT CUSTOM JUMLAH TAMPILAN */}
-      {showCustomInputModal && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="glass-card p-8 rounded-3xl w-full max-w-sm shadow-2xl relative text-center border border-emerald-500/30">
-            <h3 className="text-lg font-black mb-2 text-slate-900 dark:text-white">Custom Jumlah Tampilan</h3>
-            <p className="text-sm font-bold text-slate-500 mb-6">Masukkan jumlah baris surat per halaman:</p>
-            <input 
-              type="number" 
-              min="1" 
-              max="500"
-              value={customItemsInput}
-              onChange={(e) => setCustomItemsInput(e.target.value)}
-              placeholder="Contoh: 15"
-              className="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl font-bold text-center text-lg outline-none mb-6 text-slate-900 dark:text-white"
-              autoFocus
-            />
-            <div className="flex gap-3">
-              <button onClick={() => setShowCustomInputModal(false)} className="flex-1 py-3 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl font-black uppercase text-[10px] tracking-widest">Batal</button>
-              <button onClick={() => {
-                const parsed = parseInt(customItemsInput, 10);
-                if (!isNaN(parsed) && parsed > 0) {
-                  setItemsPerPage(parsed);
-                  setShowCustomInputModal(false);
-                  setCustomItemsInput('');
-                } else {
-                  showToast("Masukkan angka yang valid!", "error");
-                }
-              }} className="flex-1 py-3 bg-emerald-700 text-white rounded-xl font-black uppercase text-[10px] tracking-widest shadow-md">Terapkan</button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* MODAL LOGIN ADMIN */}
       {showLoginModal && (
@@ -1116,14 +1119,10 @@ export default function App() {
                       <p className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5 mb-1"><CalendarDays size={12}/> Tanggal</p>
                       <p className="text-sm font-black text-slate-900 dark:text-white">{formatDateIndo(selectedDoc.tanggal)}</p>
                     </div>
-                    
-                    {/* DESAIN NOMOR URUT SOLID DI DETAIL */}
-                    <div className={`p-4 rounded-2xl shadow-sm relative overflow-hidden flex flex-col justify-center ${selectedDoc.jenisSurat === 'Surat Masuk' ? 'bg-emerald-600 border border-emerald-500' : 'bg-orange-600 border border-orange-500'}`}>
-                      <div className="absolute -right-2 -bottom-2 text-white/20"><ListOrdered size={60}/></div>
-                      <p className="text-[10px] font-black uppercase text-white/80 flex items-center gap-1.5 mb-1 relative z-10"><ListOrdered size={12}/> No. Urut</p>
-                      <p className="text-2xl font-black text-white relative z-10">{selectedDoc.nomorUrut}</p>
+                    <div className="bg-white/60 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                      <p className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5 mb-1"><ListOrdered size={12}/> No. Urut</p>
+                      <p className="text-sm font-black text-slate-900 dark:text-white">#{selectedDoc.nomorUrut}</p>
                     </div>
-
                     <div className="bg-white/60 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
                       <p className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5 mb-1"><FileText size={12}/> No. Berkas</p>
                       <p className="text-sm font-black text-slate-900 dark:text-white">{selectedDoc.nomorBerkas || '-'}</p>
