@@ -15,14 +15,14 @@ import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc } from 'fi
 // ==========================================
 // FIREBASE SETUP
 // ==========================================
-const CUSTOM_FIREBASE_CONFIG = {
+const CUSTOM_FIREBASE_CONFIG = {};
   apiKey: "AIzaSyBBH-DEzioBJNXczvi_q8mIjYnUnSnHx9w",
   authDomain: "sigap-lapas-kalabahi.firebaseapp.com",
   projectId: "sigap-lapas-kalabahi",
   storageBucket: "sigap-lapas-kalabahi.firebasestorage.app",
   messagingSenderId: "270232328446",
   appId: "1:270232328446:web:e0399bfe337ff07df9adaf"
-};  
+};
 
 let app, auth, db, appId = 'default-app-id';
 try {
@@ -39,9 +39,20 @@ try {
 }
 
 // ==========================================
-// MOCK DATA: DAFTAR ARSIP SURAT
+// MOCK DATA: 10 CONTOH SURAT KELUAR
 // ==========================================
-const MOCK_DOC_DATA = [];
+const MOCK_DOC_DATA = [
+  { id: "DOC-2605-010", nomorUrut: 10, jenisSurat: "Surat Keluar", nomorBerkas: "W22.PAS.PAS.4.UM.01.01-010", alamatPenerima: "Kantor Wilayah Kemenkumham NTT", tanggal: "2026-05-26", perihal: "Laporan Situasi Keamanan Harian", nomorPetunjuk: "01.01", updatedBy: "Sistem", isPinned: false, history: [] },
+  { id: "DOC-2605-009", nomorUrut: 9, jenisSurat: "Surat Keluar", nomorBerkas: "W22.PAS.PAS.4.PK.01.04-009", alamatPenerima: "Dinas Kesehatan Kabupaten Alor", tanggal: "2026-05-25", perihal: "Permohonan Vaksinasi Warga Binaan", nomorPetunjuk: "01.04", updatedBy: "Sistem", isPinned: false, history: [] },
+  { id: "DOC-2605-008", nomorUrut: 8, jenisSurat: "Surat Keluar", nomorBerkas: "W22.PAS.PAS.4.KU.02.02-008", alamatPenerima: "KPPN Kalabahi", tanggal: "2026-05-24", perihal: "Penyampaian LPJ Bendahara Pengeluaran", nomorPetunjuk: "02.02", updatedBy: "Sistem", isPinned: false, history: [] },
+  { id: "DOC-2605-007", nomorUrut: 7, jenisSurat: "Surat Keluar", nomorBerkas: "W22.PAS.PAS.4.UM.01.01-007", alamatPenerima: "Kepolisian Resor Alor", tanggal: "2026-05-23", perihal: "Koordinasi Pengamanan Hari Raya", nomorPetunjuk: "01.01", updatedBy: "Sistem", isPinned: false, history: [] },
+  { id: "DOC-2605-006", nomorUrut: 6, jenisSurat: "Surat Keluar", nomorBerkas: "W22.PAS.PAS.4.PK.05.02-006", alamatPenerima: "Pengadilan Negeri Kalabahi", tanggal: "2026-05-22", perihal: "Pengiriman Narapidana Sidang Online", nomorPetunjuk: "05.02", updatedBy: "Sistem", isPinned: false, history: [] },
+  { id: "DOC-2605-005", nomorUrut: 5, jenisSurat: "Surat Keluar", nomorBerkas: "W22.PAS.PAS.4.OT.01.02-005", alamatPenerima: "Dinas Sosial Kabupaten Alor", tanggal: "2026-05-21", perihal: "Permohonan Data Penyuluhan Sosial", nomorPetunjuk: "01.02", updatedBy: "Sistem", isPinned: false, history: [] },
+  { id: "DOC-2605-004", nomorUrut: 4, jenisSurat: "Surat Keluar", nomorBerkas: "W22.PAS.PAS.4.UM.01.01-004", alamatPenerima: "Kodim 1622 Alor", tanggal: "2026-05-20", perihal: "Undangan Kegiatan Pembinaan Bersama", nomorPetunjuk: "01.01", updatedBy: "Sistem", isPinned: false, history: [] },
+  { id: "DOC-2605-003", nomorUrut: 3, jenisSurat: "Surat Keluar", nomorBerkas: "W22.PAS.PAS.4.PK.01.01-003", alamatPenerima: "Puskesmas Kalabahi", tanggal: "2026-05-19", perihal: "Permohonan Layanan Kesehatan Rutin", nomorPetunjuk: "01.01", updatedBy: "Sistem", isPinned: false, history: [] },
+  { id: "DOC-2605-002", nomorUrut: 2, jenisSurat: "Surat Keluar", nomorBerkas: "W22.PAS.PAS.4.UM.02.03-002", alamatPenerima: "Bank Rakyat Indonesia Cabang Kalabahi", tanggal: "2026-05-18", perihal: "Rekonsiliasi Rekening Titipan Klien", nomorPetunjuk: "02.03", updatedBy: "Sistem", isPinned: false, history: [] },
+  { id: "DOC-2605-001", nomorUrut: 1, jenisSurat: "Surat Keluar", nomorBerkas: "W22.PAS.PAS.4.UM.01.01-001", alamatPenerima: "Kejaksaan Negeri Alor", tanggal: "2026-05-17", perihal: "Pemberitahuan Eksekusi Putusan Pengadilan", nomorPetunjuk: "01.01", updatedBy: "Sistem", isPinned: true, history: [] }
+];
 
 // ==========================================
 // FUNGSI HELPER GLOBAL
@@ -162,6 +173,8 @@ export default function App() {
   const [sortBy, setSortBy] = useState('Terbaru');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [customItemsInput, setCustomItemsInput] = useState('');
+  const [showCustomInputModal, setShowCustomInputModal] = useState(false);
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
@@ -193,7 +206,6 @@ export default function App() {
       if (fetchedDocs.length > 0) {
         setDocuments(fetchedDocs);
       } else {
-        // First time setup
         MOCK_DOC_DATA.forEach(mockDoc => {
           setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'laskar_docs', mockDoc.id), mockDoc);
         });
@@ -307,17 +319,19 @@ export default function App() {
       return isTypeMatch && isSearchMatch;
     });
 
-    switch(sortBy) {
-      case 'Terlama':
-        result.sort((a, b) => new Date(a.tanggal) - new Date(b.tanggal));
-        break;
-      case 'Terbaru':
-      case 'Surat Masuk':
-      case 'Surat Keluar':
-      default:
-        result.sort((a, b) => new Date(b.tanggal) - new Date(a.tanggal));
-        break;
-    }
+    // PENGURUTAN BERDASARKAN NOMOR URUT DAN TANGGAL
+    result.sort((a, b) => {
+      const numA = Number(a.nomorUrut) || 0;
+      const numB = Number(b.nomorUrut) || 0;
+      
+      // Jika nomor urut berbeda, urutkan berdasarkan nomor urut (Prioritas)
+      if (numA !== numB) {
+        return sortBy === 'Terlama' ? numA - numB : numB - numA;
+      }
+      
+      // Jika nomor urut sama, urutkan berdasarkan tanggal (Cadangan)
+      return sortBy === 'Terlama' ? new Date(a.tanggal) - new Date(b.tanggal) : new Date(b.tanggal) - new Date(a.tanggal);
+    });
 
     result.sort((a, b) => (b.isPinned === true ? 1 : 0) - (a.isPinned === true ? 1 : 0));
     return result;
@@ -325,7 +339,8 @@ export default function App() {
 
   // Pagination
   const totalPages = Math.ceil(filteredAndSortedDocs.length / itemsPerPage);
-  const paginatedDocs = filteredAndSortedDocs.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const activePage = Number(currentPage) || 1;
+  const paginatedDocs = filteredAndSortedDocs.slice((activePage - 1) * itemsPerPage, activePage * itemsPerPage);
 
   // Fungsi Autentikasi
   const handleLogin = (e) => {
@@ -629,7 +644,6 @@ export default function App() {
         </div>
       </header>
 
-      {}
       <main className={`pt-32 pb-20 px-6 mx-auto relative z-10 min-h-screen flex flex-col transition-all duration-500 w-full ${isMobileView ? 'max-w-[480px]' : 'max-w-7xl'}`}>
         
         {/* HERO SECTION */}
@@ -696,7 +710,6 @@ export default function App() {
           </div>
         </div>
 
-        {}
         {/* SEARCH, FILTER & SORTING BAR */}
         <div className={`max-w-5xl mx-auto glass-card p-4 rounded-[2rem] flex gap-4 shadow-xl border border-white/40 dark:border-slate-700/50 w-full ${isMobileView ? 'flex-col' : 'flex-col md:flex-row'}`}>
           <div className="relative flex-1">
@@ -834,7 +847,6 @@ export default function App() {
           </div>
         )}
 
-        {}
         {/* DOCUMENTS GRID */}
         {paginatedDocs.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center animate-in fade-in duration-500 opacity-60 mt-20">
@@ -854,9 +866,10 @@ export default function App() {
                   {/* Status Line Indicator */}
                   <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${getStatusBadgeClass(docItem.jenisSurat).split(' ')[0]}`}></div>
 
-                  {/* NOMOR URUT */}
-                  <div className="absolute top-5 right-6 z-10 transition-opacity duration-300 group-hover:opacity-0 text-4xl font-black text-slate-300/50 dark:text-slate-700/50 drop-shadow-sm pointer-events-none">
-                    #{ docItem.nomorUrut }
+                  {/* DESAIN NOMOR URUT SOLID DAN MENCILOK */}
+                  <div className={`absolute top-5 right-6 z-10 transition-opacity duration-300 group-hover:opacity-0 flex flex-col items-center justify-center w-12 h-12 rounded-xl shadow-md pointer-events-none ${docItem.jenisSurat === 'Surat Masuk' ? 'bg-emerald-600 text-white' : 'bg-orange-600 text-white'}`}>
+                    <span className="text-[8px] font-black uppercase tracking-widest opacity-80 leading-none mt-1">No.</span>
+                    <span className="text-xl font-black leading-none">{docItem.nomorUrut}</span>
                   </div>
 
                   {/* TOMBOL AKSI SUPER ADMIN */}
@@ -932,30 +945,63 @@ export default function App() {
               <ListOrdered size={18} className="text-slate-400"/>
               <span className="text-[11px] font-black uppercase tracking-widest text-slate-500">Tampilkan:</span>
               <select 
-                value={itemsPerPage} 
-                onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                value={[10, 20, 30, 40, 50].includes(itemsPerPage) ? itemsPerPage : 'custom'} 
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === 'custom') {
+                    setShowCustomInputModal(true);
+                  } else {
+                    setItemsPerPage(Number(val));
+                  }
+                }}
                 className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs font-bold outline-none cursor-pointer text-slate-800 dark:text-white"
               >
                 <option value={10}>10</option>
                 <option value={20}>20</option>
                 <option value={30}>30</option>
+                <option value={40}>40</option>
+                <option value={50}>50</option>
+                <option value="custom">Custom ({itemsPerPage})</option>
               </select>
             </div>
             
             <div className="flex items-center gap-3">
               <button 
-                disabled={currentPage === 1}
-                onClick={() => setCurrentPage(p => p - 1)}
+                disabled={activePage <= 1}
+                onClick={() => setCurrentPage(activePage - 1)}
                 className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-[10px] font-black uppercase tracking-widest disabled:opacity-50 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors flex items-center gap-1"
               >
                 <ChevronRight size={14} className="rotate-180"/> Prev
               </button>
-              <span className="text-xs font-bold text-slate-600 dark:text-slate-400">
-                Hal {currentPage} dari {totalPages || 1}
-              </span>
+              
+              <div className="text-xs font-bold text-slate-600 dark:text-slate-400 flex items-center gap-2">
+                Hal
+                <input 
+                  type="number"
+                  min={1}
+                  max={totalPages || 1}
+                  value={currentPage}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === '') {
+                      setCurrentPage('');
+                    } else {
+                      let num = parseInt(val, 10);
+                      if (num > totalPages) num = totalPages;
+                      setCurrentPage(num);
+                    }
+                  }}
+                  onBlur={() => {
+                    if (currentPage === '' || currentPage < 1) setCurrentPage(1);
+                  }}
+                  className="w-14 text-center py-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 text-slate-900 dark:text-white"
+                />
+                dari {totalPages || 1}
+              </div>
+
               <button 
-                disabled={currentPage === totalPages || totalPages === 0}
-                onClick={() => setCurrentPage(p => p + 1)}
+                disabled={activePage >= totalPages || totalPages === 0}
+                onClick={() => setCurrentPage(activePage + 1)}
                 className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-[10px] font-black uppercase tracking-widest disabled:opacity-50 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors flex items-center gap-1"
               >
                 Next <ChevronRight size={14}/>
@@ -965,7 +1011,39 @@ export default function App() {
         )}
       </main>
 
-      {}
+      {/* MODAL INPUT CUSTOM JUMLAH TAMPILAN */}
+      {showCustomInputModal && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="glass-card p-8 rounded-3xl w-full max-w-sm shadow-2xl relative text-center border border-emerald-500/30">
+            <h3 className="text-lg font-black mb-2 text-slate-900 dark:text-white">Custom Jumlah Tampilan</h3>
+            <p className="text-sm font-bold text-slate-500 mb-6">Masukkan jumlah baris surat per halaman:</p>
+            <input 
+              type="number" 
+              min="1" 
+              max="500"
+              value={customItemsInput}
+              onChange={(e) => setCustomItemsInput(e.target.value)}
+              placeholder="Contoh: 15"
+              className="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl font-bold text-center text-lg outline-none mb-6 text-slate-900 dark:text-white"
+              autoFocus
+            />
+            <div className="flex gap-3">
+              <button onClick={() => setShowCustomInputModal(false)} className="flex-1 py-3 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl font-black uppercase text-[10px] tracking-widest">Batal</button>
+              <button onClick={() => {
+                const parsed = parseInt(customItemsInput, 10);
+                if (!isNaN(parsed) && parsed > 0) {
+                  setItemsPerPage(parsed);
+                  setShowCustomInputModal(false);
+                  setCustomItemsInput('');
+                } else {
+                  showToast("Masukkan angka yang valid!", "error");
+                }
+              }} className="flex-1 py-3 bg-emerald-700 text-white rounded-xl font-black uppercase text-[10px] tracking-widest shadow-md">Terapkan</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* MODAL LOGIN ADMIN */}
       {showLoginModal && (
         <div className="fixed inset-0 z-[800] flex items-center justify-center p-4 sm:p-6 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300">
@@ -1049,10 +1127,14 @@ export default function App() {
                       <p className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5 mb-1"><CalendarDays size={12}/> Tanggal</p>
                       <p className="text-sm font-black text-slate-900 dark:text-white">{formatDateIndo(selectedDoc.tanggal)}</p>
                     </div>
-                    <div className="bg-white/60 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
-                      <p className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5 mb-1"><ListOrdered size={12}/> No. Urut</p>
-                      <p className="text-sm font-black text-slate-900 dark:text-white">#{selectedDoc.nomorUrut}</p>
+                    
+                    {/* DESAIN NOMOR URUT SOLID DI DETAIL */}
+                    <div className={`p-4 rounded-2xl shadow-sm relative overflow-hidden flex flex-col justify-center ${selectedDoc.jenisSurat === 'Surat Masuk' ? 'bg-emerald-600 border border-emerald-500' : 'bg-orange-600 border border-orange-500'}`}>
+                      <div className="absolute -right-2 -bottom-2 text-white/20"><ListOrdered size={60}/></div>
+                      <p className="text-[10px] font-black uppercase text-white/80 flex items-center gap-1.5 mb-1 relative z-10"><ListOrdered size={12}/> No. Urut</p>
+                      <p className="text-2xl font-black text-white relative z-10">{selectedDoc.nomorUrut}</p>
                     </div>
+
                     <div className="bg-white/60 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
                       <p className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5 mb-1"><FileText size={12}/> No. Berkas</p>
                       <p className="text-sm font-black text-slate-900 dark:text-white">{selectedDoc.nomorBerkas || '-'}</p>
