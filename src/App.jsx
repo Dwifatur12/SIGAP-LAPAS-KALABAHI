@@ -22,7 +22,7 @@ const CUSTOM_FIREBASE_CONFIG = {
   storageBucket: "sigap-lapas-kalabahi.firebasestorage.app",
   messagingSenderId: "270232328446",
   appId: "1:270232328446:web:e0399bfe337ff07df9adaf"
-};  
+};
 
 let app, auth, db, appId = 'default-app-id';
 try {
@@ -159,7 +159,7 @@ export default function App() {
   const [selectedTime, setSelectedTime] = useState('Semua Waktu');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [sortBy, setSortBy] = useState('Terbaru');
+  const [sortBy, setSortBy] = useState('Nomor Urut');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
@@ -324,13 +324,13 @@ export default function App() {
       case 'Surat Keluar':
       case 'Nomor Urut':
       default:
-         // Default sorting diubah: Sortir berdasarkan nomorUrut DESC (tertinggi/terbaru di atas)
-         // Fallback ke tanggal jika nomor urut tidak ada atau sama
+         // Default sorting: Sortir berdasarkan nomorUrut ASCENDING (terkecil di kiri/atas)
+         // agar tata letak grid mengalir berurutan dari kiri ke kanan
          result.sort((a, b) => {
             const numA = Number(a.nomorUrut) || 0;
             const numB = Number(b.nomorUrut) || 0;
-            if (numA !== numB) return numB - numA; 
-            return new Date(b.tanggal) - new Date(a.tanggal);
+            if (numA !== numB) return numA - numB; 
+            return new Date(a.tanggal) - new Date(b.tanggal);
          });
         break;
     }
@@ -870,12 +870,6 @@ export default function App() {
                   {/* Status Line Indicator */}
                   <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${getStatusBadgeClass(docItem.jenisSurat).split(' ')[0]}`}></div>
 
-                  {/* NOMOR URUT / NOMOR AGENDA */}
-                  <div className="absolute top-5 right-6 z-10 transition-opacity duration-300 group-hover:opacity-10 text-5xl font-black text-emerald-500 dark:text-emerald-400 drop-shadow-md pointer-events-none flex flex-col items-end">
-                    <span className="text-[9px] uppercase tracking-[0.3em] font-black text-emerald-700 dark:text-emerald-300 mb-[-5px]">No. Agenda</span>
-                    #{ docItem.nomorUrut }
-                  </div>
-
                   {/* TOMBOL AKSI SUPER ADMIN */}
                   {adminUser?.role === 'superadmin' && (
                     <div className="absolute top-5 right-6 flex gap-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
@@ -890,13 +884,23 @@ export default function App() {
                     </div>
                   )}
 
-                  <div className="flex justify-end items-start mb-4 pr-24 gap-2 relative z-20 pointer-events-none">
-                    {docItem.isPinned && (
-                      <span className="px-2 py-1 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 rounded-xl text-[9px] font-black uppercase tracking-widest border border-emerald-200 dark:border-emerald-800 flex items-center gap-1 shadow-sm"><Pin size={10} className="fill-current"/> Prioritas</span>
-                    )}
-                    <span className={`px-2.5 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-sm border border-transparent ${getStatusBadgeClass(docItem.jenisSurat)}`}>
-                      {docItem.jenisSurat}
-                    </span>
+                  {/* HEADER KARTU: KIRI (NO AGENDA) & KANAN (BADGE) */}
+                  <div className="flex justify-between items-start mb-4 pl-2 pr-24 relative z-20 pointer-events-none">
+                    <div className="flex flex-col items-start bg-white/80 dark:bg-slate-900/80 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm backdrop-blur-sm">
+                      <span className="text-[8px] uppercase tracking-[0.2em] font-black text-slate-400 dark:text-slate-500 mb-0.5">No. Agenda</span>
+                      <div className="text-xl font-black text-slate-800 dark:text-white drop-shadow-sm flex items-center gap-1 leading-none">
+                        <span className="text-emerald-500">#</span>{ docItem.nomorUrut }
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2 items-start">
+                      {docItem.isPinned && (
+                        <span className="px-2 py-1 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 rounded-xl text-[9px] font-black uppercase tracking-widest border border-emerald-200 dark:border-emerald-800 flex items-center gap-1 shadow-sm"><Pin size={10} className="fill-current"/> Prioritas</span>
+                      )}
+                      <span className={`px-2.5 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-sm border border-transparent ${getStatusBadgeClass(docItem.jenisSurat)}`}>
+                        {docItem.jenisSurat}
+                      </span>
+                    </div>
                   </div>
                   
                   <div className="flex-1 mb-4 pl-2">
@@ -1203,7 +1207,7 @@ export default function App() {
                       value={formData.jenisSurat} 
                       onChange={e => setFormData({...formData, jenisSurat: e.target.value})} 
                       className="w-full px-5 py-4 premium-input rounded-2xl text-xs font-bold outline-none transition-all text-slate-900 dark:text-white"
-                      disabled={editingDoc !== null}
+                      disabled={editingDoc !== null && adminUser?.role !== 'superadmin'}
                     >
                       <option value="Surat Keluar">Surat Keluar</option>
                       <option value="Surat Masuk">Surat Masuk</option>
