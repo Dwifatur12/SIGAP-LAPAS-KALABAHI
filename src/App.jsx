@@ -22,7 +22,7 @@ const CUSTOM_FIREBASE_CONFIG = {
   storageBucket: "sigap-lapas-kalabahi.firebasestorage.app",
   messagingSenderId: "270232328446",
   appId: "1:270232328446:web:e0399bfe337ff07df9adaf"
-};
+};  
 
 let app, auth, db, appId = 'default-app-id';
 try {
@@ -104,13 +104,25 @@ export default function App() {
     return saved ? parseInt(saved) : 30; // default 30 menit
   });
   
+  const [startNomorMasuk, setStartNomorMasuk] = useState(() => {
+    const saved = localStorage.getItem('laskarStartMasuk');
+    return saved ? parseInt(saved) : 1;
+  });
+  
+  const [startNomorKeluar, setStartNomorKeluar] = useState(() => {
+    const saved = localStorage.getItem('laskarStartKeluar');
+    return saved ? parseInt(saved) : 1;
+  });
+  
   const [showSettings, setShowSettings] = useState(false);
   const [showSettingsPassword, setShowSettingsPassword] = useState(false);
   const [settingsForm, setSettingsForm] = useState({ 
     ...adminCreds, 
     superUsername: superAdminCreds.username,
     superPassword: superAdminCreds.password,
-    autoLogoutMinutes 
+    autoLogoutMinutes,
+    startNomorMasuk,
+    startNomorKeluar
   });
   const [loginError, setLoginError] = useState('');
 
@@ -119,10 +131,15 @@ export default function App() {
   const [editingDoc, setEditingDoc] = useState(null);
   
   const getNextNomorUrut = (jenisSuratType, currentDocs) => {
+    let nextUrut = jenisSuratType === 'Surat Masuk' ? startNomorMasuk : startNomorKeluar;
     const filtered = currentDocs.filter(d => d.jenisSurat === jenisSuratType);
-    if (filtered.length === 0) return 1;
-    const maxUrut = Math.max(...filtered.map(d => Number(d.nomorUrut) || 0));
-    return maxUrut + 1;
+    
+    // Sistem akan mencari celah (gap) angka pertama yang tersedia 
+    // mulai dari batas awal, dan mengabaikan loncatan angka besar dari manual input
+    while (filtered.some(d => Number(d.nomorUrut) === nextUrut)) {
+      nextUrut++;
+    }
+    return nextUrut;
   };
 
   const [formData, setFormData] = useState({
@@ -262,7 +279,7 @@ export default function App() {
         nomorUrut: getNextNomorUrut(prev.jenisSurat, documents)
       }));
     }
-  }, [formData.jenisSurat, documents, editingDoc, showDocForm]);
+  }, [formData.jenisSurat, documents, editingDoc, showDocForm, startNomorMasuk, startNomorKeluar]);
 
   // Filter Waktu 
   const timeFilteredDocs = useMemo(() => {
@@ -383,6 +400,28 @@ export default function App() {
 
   const handleSaveDoc = async (e) => {
     e.preventDefault();
+
+    // FORMAT NOMOR BERKAS: Otomatis tambahkan nomor agenda di bagian akhir
+    let formattedNomorBerkas = formData.nomorBerkas.trim();
+    
+    // Jika dalam mode edit, bersihkan nomor agenda lama yang mungkin sudah menempel
+    if (editingDoc) {
+      const prevAgendaStr = String(editingDoc.nomorUrut);
+      const regex = new RegExp(`[\\/\\-]${prevAgendaStr}$`);
+      formattedNomorBerkas = formattedNomorBerkas.replace(regex, '');
+    }
+
+    const agendaStr = String(formData.nomorUrut);
+    if (!formattedNomorBerkas.endsWith(agendaStr)) {
+      if (formattedNomorBerkas.endsWith('/') || formattedNomorBerkas.endsWith('-')) {
+        formattedNomorBerkas += agendaStr;
+      } else {
+        formattedNomorBerkas += `/${agendaStr}`;
+      }
+    }
+
+    const finalFormData = { ...formData, nomorBerkas: formattedNomorBerkas };
+
     if (editingDoc) {
       const newHistoryEntry = {
         version: `v${(editingDoc.history?.length || 0) + 1}.0`,
@@ -394,7 +433,7 @@ export default function App() {
       const updatedHistory = [newHistoryEntry, ...(editingDoc.history || [])];
       const updatedDoc = {
         ...editingDoc,
-        ...formData,
+        ...finalFormData,
         updatedBy: adminUser ? adminUser.username : 'Petugas',
         history: updatedHistory
       };
@@ -407,12 +446,12 @@ export default function App() {
       showToast("Data Arsip berhasil diperbarui!");
       setShowDocForm(false);
     } else {
-      const exactDate = formData.tanggal;
+      const exactDate = finalFormData.tanggal;
       const dateCode = exactDate.replace(/-/g, '').substring(2,8);
       const newId = `DOC-${dateCode}-${Math.floor(Math.random()*1000).toString().padStart(3, '0')}`;
       
       const newDoc = { 
-        ...formData, 
+        ...finalFormData, 
         id: newId, 
         updatedBy: adminUser ? adminUser.username : 'Sistem TU',
         history: [{ 
@@ -617,7 +656,9 @@ export default function App() {
                   ...adminCreds, 
                   superUsername: superAdminCreds.username, 
                   superPassword: superAdminCreds.password, 
-                  autoLogoutMinutes 
+                  autoLogoutMinutes,
+                  startNomorMasuk,
+                  startNomorKeluar
                 }); 
                 setShowSettings(true); 
               }} className="p-1.5 rounded-xl bg-orange-100 dark:bg-orange-800/40 hover:bg-orange-200 transition-all" title="Pengaturan Sistem">
@@ -1214,12 +1255,17 @@ export default function App() {
                     </select>
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-black uppercase text-slate-800 dark:text-slate-400 ml-1">Nomor Urut (Otomatis)</label>
+                    <label className="text-[10px] font-black uppercase text-slate-800 dark:text-slate-400 ml-1">
+                      {adminUser?.role === 'superadmin' ? 'Nomor Urut (Bebas Edit)' : 'Nomor Urut (Otomatis)'}
+                    </label>
                     <input 
                       type="number" 
                       value={formData.nomorUrut} 
-                      readOnly
-                      className="w-full px-5 py-4 bg-slate-100 dark:bg-slate-800 border-none rounded-2xl text-xs font-bold outline-none text-slate-500 cursor-not-allowed" 
+                      onChange={e => setFormData({...formData, nomorUrut: parseInt(e.target.value) || 1})}
+                      readOnly={adminUser?.role !== 'superadmin'}
+                      className={adminUser?.role === 'superadmin' 
+                        ? "w-full px-5 py-4 premium-input rounded-2xl text-xs font-bold outline-none transition-all text-slate-900 dark:text-white"
+                        : "w-full px-5 py-4 bg-slate-100 dark:bg-slate-800 border-none rounded-2xl text-xs font-bold outline-none text-slate-500 cursor-not-allowed"} 
                     />
                   </div>
                 </div>
@@ -1326,6 +1372,23 @@ export default function App() {
 
               <hr className="border-slate-200 dark:border-slate-800"/>
 
+              {/* Seksi Start Nomor Urut */}
+              <div>
+                <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-4 flex items-center gap-2"><ListOrdered size={16}/> Awal Nomor Agenda (Auto)</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black uppercase text-slate-800 dark:text-slate-400 ml-1">Mulai Surat Masuk</label>
+                    <input type="number" min="1" value={settingsForm.startNomorMasuk} onChange={e=>setSettingsForm({...settingsForm, startNomorMasuk: parseInt(e.target.value) || 1})} className="w-full px-4 py-3 premium-input rounded-xl text-xs font-bold outline-none transition-all text-slate-900 dark:text-white" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black uppercase text-slate-800 dark:text-slate-400 ml-1">Mulai Surat Keluar</label>
+                    <input type="number" min="1" value={settingsForm.startNomorKeluar} onChange={e=>setSettingsForm({...settingsForm, startNomorKeluar: parseInt(e.target.value) || 1})} className="w-full px-4 py-3 premium-input rounded-xl text-xs font-bold outline-none transition-all text-slate-900 dark:text-white" />
+                  </div>
+                </div>
+              </div>
+
+              <hr className="border-slate-200 dark:border-slate-800"/>
+
               {/* Seksi Akun Petugas */}
               <div>
                 <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-4 flex items-center gap-2"><Users size={16}/> Akun Petugas Biasa (TU)</h3>
@@ -1367,6 +1430,12 @@ export default function App() {
                 
                 setAutoLogoutMinutes(settingsForm.autoLogoutMinutes);
                 localStorage.setItem('laskarAutoLogout', settingsForm.autoLogoutMinutes.toString());
+                
+                setStartNomorMasuk(settingsForm.startNomorMasuk);
+                localStorage.setItem('laskarStartMasuk', settingsForm.startNomorMasuk.toString());
+                
+                setStartNomorKeluar(settingsForm.startNomorKeluar);
+                localStorage.setItem('laskarStartKeluar', settingsForm.startNomorKeluar.toString());
                 
                 showToast('Pengaturan Berhasil Disimpan!');
                 setShowSettings(false);
