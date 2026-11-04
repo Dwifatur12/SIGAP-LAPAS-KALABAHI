@@ -10,7 +10,12 @@ import {
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from 'firebase/auth';
-import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, runTransaction } from 'firebase/firestore';
+
+// Mencegah error "tailwind is not defined" dari environment preview
+if (typeof window !== 'undefined') {
+  window.tailwind = window.tailwind || { config: {} };
+}
 
 // ==========================================
 // FIREBASE SETUP
@@ -115,7 +120,7 @@ export default function App() {
   const [showDocForm, setShowDocForm] = useState(false);
   const [editingDoc, setEditingDoc] = useState(null);
   
-  // LOGIKA AUTO-INCREMENT (PENGISIAN CELAH)
+  // LOGIKA AUTO-INCREMENT (PENGISIAN CELAH UNTUK PREVIEW DI FORM)
   const getNextNomorUrut = (jenisSuratType, currentDocs) => {
     const filtered = currentDocs.filter(d => d.jenisSurat === jenisSuratType);
     const baseNumber = jenisSuratType === 'Surat Masuk' ? startAgendaMasuk : startAgendaKeluar;
@@ -161,7 +166,7 @@ export default function App() {
   const [selectedTime, setSelectedTime] = useState('Semua Waktu');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [sortBy, setSortBy] = useState('Nomor Urut');
+  const [sortBy, setSortBy] = useState('Nomor Agenda Terbaru');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
@@ -200,7 +205,9 @@ export default function App() {
     const docsRef = collection(db, 'artifacts', appId, 'public', 'data', 'laskar_docs');
     const unsubscribeDocs = onSnapshot(docsRef, (snapshot) => {
       const fetchedDocs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setDocuments(fetchedDocs);
+      if (fetchedDocs.length > 0) {
+        setDocuments(fetchedDocs);
+      }
     }, (error) => console.error("Firestore Docs Error:", error));
 
     // Fetch Konfigurasi (Pengaturan Sistem)
@@ -326,21 +333,23 @@ export default function App() {
     });
 
     switch(sortBy) {
-      case 'Terlama':
-        result.sort((a, b) => new Date(a.tanggal) - new Date(b.tanggal));
-        break;
-      case 'Terbaru':
-        result.sort((a, b) => new Date(b.tanggal) - new Date(a.tanggal));
-        break;
-      case 'Surat Masuk':
-      case 'Surat Keluar':
-      case 'Nomor Urut':
-      default:
+      case 'Nomor Agenda Terlama':
          result.sort((a, b) => {
             const numA = Number(a.nomorUrut) || 0;
             const numB = Number(b.nomorUrut) || 0;
             if (numA !== numB) return numA - numB; 
             return new Date(a.tanggal) - new Date(b.tanggal);
+         });
+        break;
+      case 'Nomor Agenda Terbaru':
+      case 'Surat Masuk':
+      case 'Surat Keluar':
+      default:
+         result.sort((a, b) => {
+            const numA = Number(a.nomorUrut) || 0;
+            const numB = Number(b.nomorUrut) || 0;
+            if (numA !== numB) return numB - numA; 
+            return new Date(b.tanggal) - new Date(a.tanggal);
          });
         break;
     }
@@ -391,26 +400,25 @@ export default function App() {
     showToast(docItem.isPinned ? "Arsip dilepas dari sematan." : "Arsip diprioritaskan!");
   };
 
-  // Fungsi Simpan Data Baru/Edit
+  // Fungsi Simpan Data Baru/Edit (Menggunakan Transaksi)
   const handleSaveDoc = async (e) => {
     e.preventDefault();
     
-    // Auto-append: Format string nomor berkas agar ditutup dengan /NomorUrut
-    let formattedNomorBerkas = formData.nomorBerkas.trim();
-    const urutSuffix = `/${formData.nomorUrut}`;
-    
-    // Cek jika nomor berkas sudah ada tempelan angka di ujungnya (misal .../101) lalu hapus
-    if (formattedNomorBerkas.match(/\/\d+$/)) {
-        formattedNomorBerkas = formattedNomorBerkas.replace(/\/\d+$/, '');
-    }
-    formattedNomorBerkas = formattedNomorBerkas + urutSuffix;
-
-    const finalDataToSave = {
-        ...formData,
-        nomorBerkas: formattedNomorBerkas
-    };
-
     if (editingDoc) {
+      // LOGIKA EDIT 
+      let formattedNomorBerkas = formData.nomorBerkas.trim();
+      const urutSuffix = `/${formData.nomorUrut}`;
+      
+      if (formattedNomorBerkas.match(/\/\d+$/)) {
+          formattedNomorBerkas = formattedNomorBerkas.replace(/\/\d+$/, '');
+      }
+      formattedNomorBerkas = formattedNomorBerkas + urutSuffix;
+
+      const finalDataToSave = {
+          ...formData,
+          nomorBerkas: formattedNomorBerkas
+      };
+
       const newHistoryEntry = {
         version: `v${(editingDoc.history?.length || 0) + 1}.0`,
         date: new Date().toISOString().split('T')[0],
@@ -432,31 +440,112 @@ export default function App() {
       }
       showToast("Data Arsip berhasil diperbarui!");
       setShowDocForm(false);
+      
     } else {
+      // === LOGIKA BARU UNTUK DOKUMEN BARU (MENGGUNAKAN TRANSAKSI ANTI-DOBEL) ===
+      
       const exactDate = formData.tanggal;
       const dateCode = exactDate.replace(/-/g, '').substring(2,8);
       const newId = `DOC-${dateCode}-${Math.floor(Math.random()*1000).toString().padStart(3, '0')}`;
       
-      const newDoc = { 
-        ...finalDataToSave, 
-        id: newId, 
-        updatedBy: adminUser ? adminUser.username : 'Sistem TU',
-        history: [{ 
-          version: "1.0", 
-          date: new Date().toISOString().split('T')[0], 
-          updatedBy: adminUser ? adminUser.username : 'Petugas', 
-          description: `Pencatatan arsip baru.` 
-        }],
-        isPinned: false
-      };
-
       if (db && fbUser) {
-        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'laskar_docs', newId), newDoc);
+        try {
+          const counterDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'laskar_config', 'counters');
+          const newDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'laskar_docs', newId);
+
+          await runTransaction(db, async (transaction) => {
+            const counterDoc = await transaction.get(counterDocRef);
+            let latestMasuk = startAgendaMasuk;
+            let latestKeluar = startAgendaKeluar;
+
+            if (counterDoc.exists()) {
+              const data = counterDoc.data();
+              latestMasuk = data.latestMasuk || startAgendaMasuk;
+              latestKeluar = data.latestKeluar || startAgendaKeluar;
+            }
+
+            // Tentukan nomor yang akan digunakan
+            let nomorYangAkanDisimpan = formData.nomorUrut;
+            let isSuperAdminCustomOverride = false;
+            
+            // Cek apakah Superadmin mengubah nomor urut secara manual di form
+            const defaultExpectedNumber = formData.jenisSurat === 'Surat Masuk' 
+                ? getNextNomorUrut('Surat Masuk', documents) 
+                : getNextNomorUrut('Surat Keluar', documents);
+
+            if (adminUser?.role === 'superadmin' && formData.nomorUrut !== defaultExpectedNumber) {
+                isSuperAdminCustomOverride = true;
+            } else {
+                 // Jika bukan Superadmin yang override, AMBIL SELALU DARI DATABASE COUNTER
+                 if (formData.jenisSurat === 'Surat Masuk') {
+                     nomorYangAkanDisimpan = latestMasuk;
+                     latestMasuk++;
+                 } else {
+                     nomorYangAkanDisimpan = latestKeluar;
+                     latestKeluar++;
+                 }
+            }
+
+            // Cek sekali lagi di dalam transaksi jika nomor yang akan dipakai sudah ada (Safety Net)
+            const docWithSameNumberQuery = documents.find(d => d.jenisSurat === formData.jenisSurat && Number(d.nomorUrut) === nomorYangAkanDisimpan);
+             if (docWithSameNumberQuery && !isSuperAdminCustomOverride) {
+                 nomorYangAkanDisimpan = (formData.jenisSurat === 'Surat Masuk' ? latestMasuk : latestKeluar) + 1;
+             }
+
+            // Update Counter agar orang berikutnya dapat nomor lanjutannya (Jika override superadmin melampaui batas)
+            if (isSuperAdminCustomOverride) {
+                if (formData.jenisSurat === 'Surat Masuk' && nomorYangAkanDisimpan >= latestMasuk) {
+                    latestMasuk = nomorYangAkanDisimpan + 1;
+                } else if (formData.jenisSurat === 'Surat Keluar' && nomorYangAkanDisimpan >= latestKeluar) {
+                    latestKeluar = nomorYangAkanDisimpan + 1;
+                }
+            }
+
+            // Auto-append Nomor Berkas
+            let formattedNomorBerkas = formData.nomorBerkas.trim();
+            const urutSuffix = `/${nomorYangAkanDisimpan}`;
+            
+            if (formattedNomorBerkas.match(/\/\d+$/)) {
+                formattedNomorBerkas = formattedNomorBerkas.replace(/\/\d+$/, '');
+            }
+            formattedNomorBerkas = formattedNomorBerkas + urutSuffix;
+
+            const newDocData = { 
+              ...formData,
+              nomorUrut: nomorYangAkanDisimpan,
+              nomorBerkas: formattedNomorBerkas,
+              id: newId, 
+              updatedBy: adminUser ? adminUser.username : 'Sistem TU',
+              history: [{ 
+                version: "1.0", 
+                date: new Date().toISOString().split('T')[0], 
+                updatedBy: adminUser ? adminUser.username : 'Petugas', 
+                description: `Pencatatan arsip baru.` 
+              }],
+              isPinned: false
+            };
+
+            // 1. Simpan dokumen baru
+            transaction.set(newDocRef, newDocData);
+            
+            // 2. Update dokumen penghitung (Counter)
+            transaction.set(counterDocRef, {
+                latestMasuk: latestMasuk,
+                latestKeluar: latestKeluar
+            }, { merge: true });
+
+          }); 
+
+          showToast("Arsip Baru berhasil dicatat!");
+          setShowDocForm(false);
+
+        } catch (e) {
+          console.error("Transaction failed: ", e);
+          showToast("Terjadi kesalahan saat menyimpan arsip. Silakan coba lagi.", "error");
+        }
       } else {
-        setDocuments([newDoc, ...documents]);
+          showToast("Sistem offline, gagal mendapatkan nomor agenda terverifikasi.", "error");
       }
-      showToast("Arsip Baru berhasil dicatat!");
-      setShowDocForm(false);
     }
   };
 
@@ -481,7 +570,7 @@ export default function App() {
   // ==========================================
   const generateTableHtml = () => {
     let html = '<table border="1" style="border-collapse: collapse; width: 100%; font-family: sans-serif; font-size: 12px;"><thead><tr style="background-color: #f0f0f0;">';
-    html += '<th style="padding: 8px;">No. Urut</th><th style="padding: 8px;">Jenis Surat</th><th style="padding: 8px;">Nomor Berkas</th><th style="padding: 8px;">Alamat Penerima</th><th style="padding: 8px;">Tanggal</th><th style="padding: 8px;">Perihal</th><th style="padding: 8px;">No. Petunjuk</th>';
+    html += '<th style="padding: 8px;">No. Urut</th><th style="padding: 8px;">Jenis Surat</th><th style="padding: 8px;">Nomor Berkas</th><th style="padding: 8px;">Pengirim / Penerima</th><th style="padding: 8px;">Tanggal</th><th style="padding: 8px;">Perihal</th><th style="padding: 8px;">No. Petunjuk</th>';
     html += '</tr></thead><tbody>';
     filteredAndSortedDocs.forEach(d => {
       html += `<tr><td style="padding: 8px;">${d.nomorUrut}</td><td style="padding: 8px;">${d.jenisSurat}</td><td style="padding: 8px;">${d.nomorBerkas}</td><td style="padding: 8px;">${d.alamatPenerima}</td><td style="padding: 8px;">${d.tanggal}</td><td style="padding: 8px;">${d.perihal || '-'}</td><td style="padding: 8px;">${d.nomorPetunjuk}</td></tr>`;
@@ -841,11 +930,10 @@ export default function App() {
                 onChange={(e) => setSortBy(e.target.value)}
                 className="w-full pl-10 pr-8 py-4 bg-white/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl text-[11px] font-bold uppercase tracking-wide outline-none appearance-none cursor-pointer transition-all text-slate-900 dark:text-white"
               >
-                <option value="Nomor Urut">Nomor Urut (Default)</option>
-                <option value="Terbaru">Tanggal Terbaru</option>
-                <option value="Terlama">Tanggal Terlama</option>
-                <option value="Surat Masuk">Hanya S. Masuk</option>
-                <option value="Surat Keluar">Hanya S. Keluar</option>
+                <option value="Nomor Agenda Terbaru">Nomor Agenda Terbaru (Default)</option>
+                <option value="Nomor Agenda Terlama">Nomor Agenda Terlama</option>
+                <option value="Surat Masuk">Surat Masuk</option>
+                <option value="Surat Keluar">Surat Keluar</option>
               </select>
               <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none rotate-90" size={14}/>
             </div>
@@ -933,9 +1021,6 @@ export default function App() {
                   </div>
                   
                   <div className="flex-1 mb-4 pl-2">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-1 flex items-center gap-1.5">
-                      {docItem.id}
-                    </p>
                     <div className="flex items-center gap-3 mb-3">
                       <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-emerald-800 dark:text-emerald-400 shrink-0 border border-slate-200 dark:border-slate-700 overflow-hidden">
                         <FileText size={20} />
@@ -951,7 +1036,7 @@ export default function App() {
                     <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700/50 mb-2">
                       <Building size={16} className="text-orange-600 shrink-0"/>
                       <div className="overflow-hidden flex-1">
-                        <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Alamat / Penerima</p>
+                        <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">{docItem.jenisSurat === 'Surat Keluar' ? 'Alamat Penerima' : 'Alamat Pengirim'}</p>
                         <p className="text-sm font-bold text-slate-800 dark:text-slate-200 truncate">{docItem.alamatPenerima || '-'}</p>
                       </div>
                     </div>
@@ -1119,9 +1204,6 @@ export default function App() {
               
               <div className="flex items-center gap-4 mb-4">
                 <div>
-                  <span className="inline-block px-2.5 py-1 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg text-[10px] font-black uppercase tracking-widest mb-2 border border-slate-300 dark:border-slate-700 mr-2">
-                    ID: {selectedDoc.id}
-                  </span>
                   <span className={`px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest text-white ${getStatusBadgeClass(selectedDoc.jenisSurat)}`}>
                     {selectedDoc.jenisSurat}
                   </span>
@@ -1130,7 +1212,7 @@ export default function App() {
               <h2 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white leading-tight mb-2">{selectedDoc.perihal || 'Tanpa Perihal'}</h2>
               <div className="flex flex-wrap items-center gap-3">
                 <p className="text-sm font-bold text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
-                  <Building size={16} className="text-orange-600"/> Alamat: <span className="text-slate-900 dark:text-white bg-orange-50 dark:bg-orange-900/30 px-2 py-0.5 rounded border border-orange-200 dark:border-orange-800/50">{selectedDoc.alamatPenerima || '-'}</span>
+                  <Building size={16} className="text-orange-600"/> {selectedDoc.jenisSurat === 'Surat Keluar' ? 'Alamat Penerima' : 'Alamat Pengirim'}: <span className="text-slate-900 dark:text-white bg-orange-50 dark:bg-orange-900/30 px-2 py-0.5 rounded border border-orange-200 dark:border-orange-800/50">{selectedDoc.alamatPenerima || '-'}</span>
                 </p>
               </div>
             </div>
@@ -1243,13 +1325,17 @@ export default function App() {
                     </select>
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-black uppercase text-slate-800 dark:text-slate-400 ml-1">Nomor Urut Agenda</label>
+                    <label className="text-[10px] font-black uppercase text-slate-800 dark:text-slate-400 ml-1">
+                      {adminUser?.role === 'superadmin' ? 'Nomor Urut (Bebas Edit)' : 'Nomor Urut (Otomatis)'}
+                    </label>
                     <input 
                       type="number" 
                       value={formData.nomorUrut} 
-                      onChange={e => setFormData({...formData, nomorUrut: Number(e.target.value)})} 
+                      onChange={e => setFormData({...formData, nomorUrut: parseInt(e.target.value) || 1})}
                       readOnly={adminUser?.role !== 'superadmin'}
-                      className={`w-full px-5 py-4 rounded-2xl text-xs font-bold outline-none transition-all text-slate-900 dark:text-white ${adminUser?.role === 'superadmin' ? 'premium-input' : 'bg-slate-100 dark:bg-slate-800 border-none text-slate-500 cursor-not-allowed'}`} 
+                      className={adminUser?.role === 'superadmin' 
+                        ? "w-full px-5 py-4 premium-input rounded-2xl text-xs font-bold outline-none transition-all text-slate-900 dark:text-white"
+                        : "w-full px-5 py-4 bg-slate-100 dark:bg-slate-800 border-none rounded-2xl text-xs font-bold outline-none text-slate-500 cursor-not-allowed"} 
                     />
                   </div>
                 </div>
@@ -1266,7 +1352,7 @@ export default function App() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black uppercase text-slate-800 dark:text-slate-400 ml-1">Alamat / Penerima / Pengirim</label>
+                  <label className="text-[10px] font-black uppercase text-slate-800 dark:text-slate-400 ml-1">{formData.jenisSurat === 'Surat Keluar' ? 'Alamat Penerima' : 'Alamat Pengirim'}</label>
                   <input type="text" value={formData.alamatPenerima} onChange={e=>setFormData({...formData, alamatPenerima: e.target.value})} placeholder="Nama instansi atau orang" className="w-full px-5 py-4 premium-input rounded-2xl text-xs font-bold outline-none transition-all text-slate-900 dark:text-white" required />
                 </div>
 
@@ -1362,11 +1448,11 @@ export default function App() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-black uppercase text-slate-800 dark:text-slate-400 ml-1">Mulai Surat Masuk</label>
-                    <input type="number" value={settingsForm.startAgendaMasuk || ''} onChange={e=>setSettingsForm({...settingsForm, startAgendaMasuk: Number(e.target.value)})} className="w-full px-4 py-3 premium-input rounded-xl text-xs font-bold outline-none transition-all text-slate-900 dark:text-white" />
+                    <input type="number" min="1" value={settingsForm.startAgendaMasuk || ''} onChange={e=>setSettingsForm({...settingsForm, startAgendaMasuk: parseInt(e.target.value) || 1})} className="w-full px-4 py-3 premium-input rounded-xl text-xs font-bold outline-none transition-all text-slate-900 dark:text-white" />
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-black uppercase text-slate-800 dark:text-slate-400 ml-1">Mulai Surat Keluar</label>
-                    <input type="number" value={settingsForm.startAgendaKeluar || ''} onChange={e=>setSettingsForm({...settingsForm, startAgendaKeluar: Number(e.target.value)})} className="w-full px-4 py-3 premium-input rounded-xl text-xs font-bold outline-none transition-all text-slate-900 dark:text-white" />
+                    <input type="number" min="1" value={settingsForm.startAgendaKeluar || ''} onChange={e=>setSettingsForm({...settingsForm, startAgendaKeluar: parseInt(e.target.value) || 1})} className="w-full px-4 py-3 premium-input rounded-xl text-xs font-bold outline-none transition-all text-slate-900 dark:text-white" />
                   </div>
                 </div>
               </div>
@@ -1420,7 +1506,7 @@ export default function App() {
                   } catch (error) {
                     console.error("Gagal menyimpan ke Firebase:", error);
                     showToast("Gagal menyimpan pengaturan ke server", "error");
-                    return; // Hentikan proses jika gagal nyambung ke database
+                    return; 
                   }
                 }
                 
