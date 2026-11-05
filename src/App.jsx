@@ -110,6 +110,9 @@ export default function App() {
   const [showDocForm, setShowDocForm] = useState(false);
   const [editingDoc, setEditingDoc] = useState(null);
   
+  // STATE MENCEGAH KLIK DOUBLE SIMPAN
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
   // Mencari celah nomor kosong secara lokal
   const getNextNomorUrut = (jenisSuratType, currentDocs) => {
     const filtered = currentDocs.filter(d => d.jenisSurat === jenisSuratType);
@@ -156,7 +159,7 @@ export default function App() {
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
+    setTimeout(() => setToast(null), 5000); // Waktu toast diperpanjang agar notifikasi mudah dibaca
   };
 
   useEffect(() => {
@@ -332,57 +335,57 @@ export default function App() {
     showToast(docItem.isPinned ? "Arsip dilepas dari sematan." : "Arsip diprioritaskan!");
   };
 
-  // SISTEM PENGUNCIAN TRANSAKSI (ANTI DOBEL)
+  // SISTEM PENGUNCIAN TRANSAKSI (ANTI DOBEL) DENGAN NOTIFIKASI
   const handleSaveDoc = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return; // Cegah tombol ditekan lebih dari 1 kali
+    setIsSubmitting(true);    // Kunci tombol
     
-    if (editingDoc) {
-      let formattedNomorBerkas = formData.nomorBerkas.trim();
-      const urutSuffix = `/${formData.nomorUrut}`;
-      
-      if (formattedNomorBerkas.match(/\/\d+$/)) {
-          formattedNomorBerkas = formattedNomorBerkas.replace(/\/\d+$/, '');
-      }
-      formattedNomorBerkas = formattedNomorBerkas + urutSuffix;
-
-      const finalDataToSave = { ...formData, nomorBerkas: formattedNomorBerkas };
-      const newHistoryEntry = {
-        version: `v${(editingDoc.history?.length || 0) + 1}.0`,
-        date: new Date().toISOString().split('T')[0],
-        updatedBy: adminUser ? adminUser.username : 'Sistem',
-        description: `Data arsip diperbarui.`
-      };
-
-      const updatedDoc = {
-        ...editingDoc, ...finalDataToSave,
-        updatedBy: adminUser ? adminUser.username : 'Petugas',
-        history: [newHistoryEntry, ...(editingDoc.history || [])]
-      };
-
-      if (db && fbUser) {
-        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'laskar_docs', updatedDoc.id), updatedDoc);
-
-        // Jika superadmin ganti jenis surat/nomor urut manual saat ngedit, perbaiki gemboknya
-        if (editingDoc.jenisSurat !== updatedDoc.jenisSurat || editingDoc.nomorUrut !== updatedDoc.nomorUrut) {
-            const oldLockId = `lock_${editingDoc.jenisSurat.replace(/\s+/g, '')}_${editingDoc.nomorUrut}`;
-            const newLockId = `lock_${updatedDoc.jenisSurat.replace(/\s+/g, '')}_${updatedDoc.nomorUrut}`;
-            await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'laskar_locks', oldLockId)).catch(()=>console.log('No old lock'));
-            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'laskar_locks', newLockId), { docId: updatedDoc.id, timestamp: new Date().toISOString() });
+    try {
+      if (editingDoc) {
+        let formattedNomorBerkas = formData.nomorBerkas.trim();
+        const urutSuffix = `/${formData.nomorUrut}`;
+        
+        if (formattedNomorBerkas.match(/\/\d+$/)) {
+            formattedNomorBerkas = formattedNomorBerkas.replace(/\/\d+$/, '');
         }
+        formattedNomorBerkas = formattedNomorBerkas + urutSuffix;
+
+        const finalDataToSave = { ...formData, nomorBerkas: formattedNomorBerkas };
+        const newHistoryEntry = {
+          version: `v${(editingDoc.history?.length || 0) + 1}.0`,
+          date: new Date().toISOString().split('T')[0],
+          updatedBy: adminUser ? adminUser.username : 'Sistem',
+          description: `Data arsip diperbarui.`
+        };
+
+        const updatedDoc = {
+          ...editingDoc, ...finalDataToSave,
+          updatedBy: adminUser ? adminUser.username : 'Petugas',
+          history: [newHistoryEntry, ...(editingDoc.history || [])]
+        };
+
+        if (db && fbUser) {
+          await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'laskar_docs', updatedDoc.id), updatedDoc);
+          if (editingDoc.jenisSurat !== updatedDoc.jenisSurat || editingDoc.nomorUrut !== updatedDoc.nomorUrut) {
+              const oldLockId = `lock_${editingDoc.jenisSurat.replace(/\s+/g, '')}_${editingDoc.nomorUrut}`;
+              const newLockId = `lock_${updatedDoc.jenisSurat.replace(/\s+/g, '')}_${updatedDoc.nomorUrut}`;
+              await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'laskar_locks', oldLockId)).catch(()=>console.log('No old lock'));
+              await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'laskar_locks', newLockId), { docId: updatedDoc.id, timestamp: new Date().toISOString() });
+          }
+        } else {
+          setDocuments(documents.map(d => d.id === editingDoc.id ? updatedDoc : d));
+        }
+        showToast("Data Arsip berhasil diperbarui!");
+        setShowDocForm(false);
+        
       } else {
-        setDocuments(documents.map(d => d.id === editingDoc.id ? updatedDoc : d));
-      }
-      showToast("Data Arsip berhasil diperbarui!");
-      setShowDocForm(false);
-      
-    } else {
-      // PROSES DOKUMEN BARU
-      const exactDate = formData.tanggal;
-      const dateCode = exactDate.replace(/-/g, '').substring(2,8);
-      const newId = `DOC-${dateCode}-${Math.floor(Math.random()*1000).toString().padStart(3, '0')}`;
-      
-      if (db && fbUser) {
-        try {
+        // PROSES DOKUMEN BARU
+        const exactDate = formData.tanggal;
+        const dateCode = exactDate.replace(/-/g, '').substring(2,8);
+        const newId = `DOC-${dateCode}-${Math.floor(Math.random()*1000).toString().padStart(3, '0')}`;
+        
+        if (db && fbUser) {
           const defaultExpectedNumber = formData.jenisSurat === 'Surat Masuk' 
               ? getNextNomorUrut('Surat Masuk', documents) 
               : getNextNomorUrut('Surat Keluar', documents);
@@ -392,6 +395,7 @@ export default function App() {
           let success = false;
           let attempt = 0;
           let currentTarget = formData.nomorUrut;
+          let numberWasChanged = false; // FLAG PENDETEKSI PERUBAHAN OTOMATIS
 
           while (!success && attempt < 15) {
               try {
@@ -399,7 +403,6 @@ export default function App() {
                       const lockId = `lock_${formData.jenisSurat.replace(/\s+/g, '')}_${currentTarget}`;
                       const lockRef = doc(db, 'artifacts', appId, 'public', 'data', 'laskar_locks', lockId);
 
-                      // Cek apakah nomor ini sudah dikunci (diambil) petugas lain di milidetik yang sama
                       const lockSnap = await transaction.get(lockRef);
                       if (lockSnap.exists()) {
                           throw new Error("NUM_TAKEN");
@@ -429,7 +432,6 @@ export default function App() {
 
                       const newDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'laskar_docs', newId);
 
-                      // Gembok dan simpan
                       transaction.set(lockRef, { docId: newId, timestamp: new Date().toISOString() });
                       transaction.set(newDocRef, newDocData);
                   }); 
@@ -440,7 +442,7 @@ export default function App() {
                       if (isSuperAdminCustomOverride) {
                           throw new Error("MANUAL_TAKEN");
                       }
-                      // Tabrakan terdeteksi. Otomatis cari celah nomor berikutnya
+                      numberWasChanged = true; // Tabrakan terdeteksi
                       attempt++;
                       let nextNum = currentTarget + 1;
                       while (documents.some(d => d.jenisSurat === formData.jenisSurat && Number(d.nomorUrut) === nextNum)) {
@@ -448,29 +450,34 @@ export default function App() {
                       }
                       currentTarget = nextNum;
                   } else {
-                      throw err; // Lempar jika error jaringan
+                      throw err; 
                   }
               }
           }
 
           if (success) {
-             showToast("Arsip Baru berhasil dicatat!");
+             if (numberWasChanged) {
+                 showToast(`Nomor telah digunakan perangkat lain! Arsip berhasil dicatat di urutan baru: #${currentTarget}`, "success");
+             } else {
+                 showToast("Arsip Baru berhasil dicatat!");
+             }
              setShowDocForm(false);
           } else {
              showToast("Gagal menyimpan setelah beberapa kali percobaan. Server sibuk.", "error");
           }
-
-        } catch (e) {
-          console.error("Save failed: ", e);
-          if (e.message === "MANUAL_TAKEN") {
-              showToast(`Nomor Agenda ${formData.nomorUrut} sudah digunakan! Silakan pilih nomor lain.`, "error");
-          } else {
-              showToast("Terjadi kesalahan saat menyimpan arsip. Silakan coba lagi.", "error");
-          }
+        } else {
+            showToast("Sistem offline, tidak bisa menyimpan.", "error");
         }
-      } else {
-          showToast("Sistem offline, tidak bisa menyimpan.", "error");
       }
+    } catch (e) {
+      console.error("Save failed: ", e);
+      if (e.message === "MANUAL_TAKEN") {
+          showToast(`Nomor Agenda ${formData.nomorUrut} sudah digunakan! Silakan pilih nomor lain.`, "error");
+      } else {
+          showToast("Terjadi kesalahan saat menyimpan arsip. Silakan coba lagi.", "error");
+      }
+    } finally {
+      setIsSubmitting(false); // Buka kembali tombol simpan
     }
   };
 
@@ -1135,7 +1142,7 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL FORM TAMBAH/EDIT ARSIP (HANYA UNTUK ADMIN) */}
+      {/* MODAL FORM TAMBAH/EDIT ARSIP */}
       {showDocForm && isAdmin && (
         <div className="fixed inset-0 z-[700] flex items-center justify-center p-4 sm:p-6 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300">
           <div className="glass-card p-0 rounded-[3rem] w-full max-w-2xl shadow-[0_0_50px_rgba(6,95,70,0.15)] relative border border-emerald-800/30 overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-300">
@@ -1215,11 +1222,11 @@ export default function App() {
             </div>
 
             <div className="p-6 border-t border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 flex gap-3 mt-auto shrink-0">
-              <button onClick={() => setShowDocForm(false)} className="flex-1 py-4 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-2xl font-black uppercase text-[11px] tracking-widest hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors">
+              <button onClick={() => setShowDocForm(false)} disabled={isSubmitting} className="flex-1 py-4 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-2xl font-black uppercase text-[11px] tracking-widest hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                 Batal
               </button>
-              <button type="submit" form="docFormAdmin" className="flex-[2] py-4 bg-emerald-800 text-white rounded-2xl font-black uppercase text-[11px] tracking-widest btn-3d flex items-center justify-center gap-2">
-                <CheckCircle2 size={18} /> Simpan Data
+              <button type="submit" form="docFormAdmin" disabled={isSubmitting} className={`flex-[2] py-4 ${isSubmitting ? 'bg-slate-400 cursor-not-allowed' : 'bg-emerald-800 btn-3d'} text-white rounded-2xl font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-2 transition-all`}>
+                <CheckCircle2 size={18} /> {isSubmitting ? 'Memproses...' : 'Simpan Data'}
               </button>
             </div>
             
