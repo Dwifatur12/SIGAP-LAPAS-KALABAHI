@@ -128,10 +128,10 @@ export default function App() {
 
   const [formData, setFormData] = useState({
     jenisSurat: 'Surat Keluar',
-    modelSurat: 'Surat Biasa', // Tambahan Model Surat
+    modelSurat: 'Surat Biasa',
     nomorUrut: 1,
     nomorBerkas: '',
-    nomorBerkasBelakang: '', // Tambahan untuk SK 
+    nomorBerkasBelakang: '',
     alamatPenerima: '', 
     tanggal: new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0], 
     perihal: '',
@@ -325,7 +325,6 @@ export default function App() {
 
   const handleLogout = () => {
     setShowLogoutConfirm(true);
-    // Reset selection saat logout
     setIsSelectionMode(false);
     setSelectedItemsForAction([]);
   };
@@ -391,8 +390,7 @@ export default function App() {
     });
   };
 
-
-  // SISTEM PENGUNCIAN TRANSAKSI & LOGIKA MODEL SURAT
+  // SISTEM PENGUNCIAN TRANSAKSI & LOGIKA AUTO APPEND
   const handleSaveDoc = async (e) => {
     e.preventDefault();
     if (isSubmitting) return; 
@@ -400,22 +398,21 @@ export default function App() {
     
     try {
       if (editingDoc) {
-        
+        // Konstruksi Nomor Berkas Tanpa /
         let formattedNomorBerkas = '';
         if (formData.modelSurat === 'Surat Keterangan / SK') {
-            formattedNomorBerkas = `${formData.nomorBerkas.trim()}/${formData.nomorUrut}/${formData.nomorBerkasBelakang.trim()}`;
+            formattedNomorBerkas = `${formData.nomorBerkas.trim()}${formData.nomorUrut}${formData.nomorBerkasBelakang.trim()}`;
         } else {
-            // Logika Surat Biasa
-            formattedNomorBerkas = formData.nomorBerkas.trim();
-            const urutSuffix = `/${formData.nomorUrut}`;
-            // Bersihkan akhiran urutan lama jika ada, lalu pasang yang baru
-            if (formattedNomorBerkas.match(/\/\d+$/)) {
-                formattedNomorBerkas = formattedNomorBerkas.replace(/\/\d+$/, '');
-            }
-            formattedNomorBerkas = formattedNomorBerkas + urutSuffix;
+            formattedNomorBerkas = `${formData.nomorBerkas.trim()}${formData.nomorUrut}`;
         }
 
-        const finalDataToSave = { ...formData, nomorBerkas: formattedNomorBerkas };
+        const finalDataToSave = { 
+            ...formData, 
+            nomorBerkasDepan: formData.nomorBerkas.trim(),
+            nomorBerkasBelakang: formData.modelSurat === 'Surat Keterangan / SK' ? formData.nomorBerkasBelakang.trim() : '',
+            nomorBerkas: formattedNomorBerkas 
+        };
+
         const newHistoryEntry = {
           version: `v${(editingDoc.history?.length || 0) + 1}.0`,
           date: new Date().toISOString().split('T')[0],
@@ -471,22 +468,18 @@ export default function App() {
                           throw new Error("NUM_TAKEN");
                       }
 
-                      // Susun Nomor Berkas Sesuai Model
                       let formattedNomorBerkas = '';
                       if (formData.modelSurat === 'Surat Keterangan / SK') {
-                          formattedNomorBerkas = `${formData.nomorBerkas.trim()}/${currentTarget}/${formData.nomorBerkasBelakang.trim()}`;
+                          formattedNomorBerkas = `${formData.nomorBerkas.trim()}${currentTarget}${formData.nomorBerkasBelakang.trim()}`;
                       } else {
-                          formattedNomorBerkas = formData.nomorBerkas.trim();
-                          const urutSuffix = `/${currentTarget}`;
-                          if (formattedNomorBerkas.match(/\/\d+$/)) {
-                              formattedNomorBerkas = formattedNomorBerkas.replace(/\/\d+$/, '');
-                          }
-                          formattedNomorBerkas = formattedNomorBerkas + urutSuffix;
+                          formattedNomorBerkas = `${formData.nomorBerkas.trim()}${currentTarget}`;
                       }
 
                       const newDocData = { 
                         ...formData,
                         nomorUrut: currentTarget,
+                        nomorBerkasDepan: formData.nomorBerkas.trim(),
+                        nomorBerkasBelakang: formData.modelSurat === 'Surat Keterangan / SK' ? formData.nomorBerkasBelakang.trim() : '',
                         nomorBerkas: formattedNomorBerkas,
                         id: newId, 
                         updatedBy: adminUser ? adminUser.username : 'Sistem TU',
@@ -929,8 +922,8 @@ export default function App() {
                   <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${getStatusBadgeClass(docItem.jenisSurat).split(' ')[0]}`}></div>
 
                   {isSelectionMode && (
-                     <div className={`absolute top-5 right-6 w-6 h-6 rounded-full border-2 flex items-center justify-center z-30 transition-colors ${isSelected ? 'bg-orange-500 border-orange-500 text-white' : 'border-slate-300 dark:border-slate-600'}`}>
-                        {isSelected && <CheckCircle2 size={16} className="text-white"/>}
+                     <div className={`absolute top-5 right-6 w-6 h-6 rounded flex items-center justify-center z-30 transition-colors border-2 ${isSelected ? 'bg-orange-500 border-orange-500 text-white' : 'border-slate-400 dark:border-slate-500 bg-white/50 dark:bg-slate-800/50'}`}>
+                        {isSelected && <CheckSquare size={16} className="text-white"/>}
                      </div>
                   )}
 
@@ -941,19 +934,20 @@ export default function App() {
                       )}
                       <button onClick={(e) => { 
                          e.stopPropagation(); 
-                         // Deteksi mode edit: bedakan Surat Biasa vs SK
-                         let editModelSurat = 'Surat Biasa';
-                         let depan = docItem.nomorBerkas;
-                         let belakang = '';
                          
-                         const parts = docItem.nomorBerkas.split('/');
-                         if (parts.length >= 3) {
-                             // Ini format SK: depan / urut / belakang
-                             editModelSurat = 'Surat Keterangan / SK';
-                             depan = parts[0];
-                             belakang = parts.slice(2).join('/');
-                         } else if (parts.length === 2) {
-                             depan = parts[0];
+                         let editModelSurat = docItem.modelSurat || 'Surat Biasa';
+                         let depan = docItem.nomorBerkasDepan !== undefined ? docItem.nomorBerkasDepan : docItem.nomorBerkas; 
+                         let belakang = docItem.nomorBerkasBelakang !== undefined ? docItem.nomorBerkasBelakang : '';
+                         
+                         if (docItem.nomorBerkasDepan === undefined && docItem.nomorBerkas.includes('/')) {
+                             const parts = docItem.nomorBerkas.split('/');
+                             if (parts.length >= 3) {
+                                 editModelSurat = 'Surat Keterangan / SK';
+                                 depan = parts[0];
+                                 belakang = parts.slice(2).join('/');
+                             } else if (parts.length === 2) {
+                                 depan = parts[0];
+                             }
                          }
 
                          setEditingDoc(docItem); 
@@ -1326,7 +1320,7 @@ export default function App() {
                 <div className={`grid gap-5 ${formData.modelSurat === 'Surat Keterangan / SK' ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-1 md:grid-cols-2'}`}>
                   <div className={`space-y-1.5 ${formData.modelSurat === 'Surat Keterangan / SK' ? 'sm:col-span-1' : ''}`}>
                     <label className="text-[10px] font-black uppercase text-slate-800 dark:text-slate-400 ml-1">Nomor Berkas (Depan)</label>
-                    <input type="text" value={formData.nomorBerkas.replace(/\/\d+$/, '')} onChange={e=>setFormData({...formData, nomorBerkas: e.target.value})} placeholder="Contoh: W22.PAS..." className="w-full px-5 py-4 premium-input rounded-2xl text-xs font-bold outline-none transition-all text-slate-900 dark:text-white" required />
+                    <input type="text" value={formData.nomorBerkas} onChange={e=>setFormData({...formData, nomorBerkas: e.target.value})} placeholder="Contoh: W22.PAS..." className="w-full px-5 py-4 premium-input rounded-2xl text-xs font-bold outline-none transition-all text-slate-900 dark:text-white" required />
                   </div>
                   
                   {formData.modelSurat === 'Surat Keterangan / SK' && (
