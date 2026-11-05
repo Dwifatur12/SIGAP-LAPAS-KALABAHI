@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from 'firebase/auth';
-import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, runTransaction } from 'firebase/firestore';
+import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, runTransaction, writeBatch } from 'firebase/firestore';
 
 // Polyfill sederhana agar Tailwind tidak menyebabkan error undefined saat loading di preview
 if (typeof window !== 'undefined') { window.tailwind = window.tailwind || {}; }
@@ -111,10 +111,10 @@ export default function App() {
   const [editingDoc, setEditingDoc] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // State untuk Fitur Multi-Select (Pilih Banyak)
   const [selectedItemsForAction, setSelectedItemsForAction] = useState([]);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
 
+  // Mencari celah nomor kosong secara lokal
   const getNextNomorUrut = (jenisSuratType, currentDocs) => {
     const filtered = currentDocs.filter(d => d.jenisSurat === jenisSuratType);
     const baseNumber = jenisSuratType === 'Surat Masuk' ? startAgendaMasuk : startAgendaKeluar;
@@ -343,7 +343,7 @@ export default function App() {
   };
 
   // -------------------------------------------------------------
-  // FITUR PILIH BANYAK (BULK SELECTION)
+  // FITUR PILIH BANYAK (BULK SELECTION) DENGAN PEMBERSIHAN GEMBOK (WRITEBATCH)
   // -------------------------------------------------------------
   const handleToggleSelectDoc = (id, e) => {
     if (e) e.stopPropagation();
@@ -367,14 +367,16 @@ export default function App() {
       onConfirm: async () => {
         if (db && fbUser) {
           try {
-            await Promise.all(selectedItemsForAction.map(async (id) => {
+            const batch = writeBatch(db);
+            selectedItemsForAction.forEach((id) => {
                const docItem = documents.find(d => d.id === id);
                if (docItem) {
                  const lockId = `lock_${docItem.jenisSurat.replace(/\s+/g, '')}_${docItem.nomorUrut}`;
-                 await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'laskar_docs', id));
-                 await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'laskar_locks', lockId)).catch(()=>console.log('No lock to delete'));
+                 batch.delete(doc(db, 'artifacts', appId, 'public', 'data', 'laskar_docs', id));
+                 batch.delete(doc(db, 'artifacts', appId, 'public', 'data', 'laskar_locks', lockId));
                }
-            }));
+            });
+            await batch.commit();
             showToast(`${selectedItemsForAction.length} arsip berhasil dihapus massal!`);
           } catch (e) {
             console.error("Bulk Delete Error", e);
@@ -390,7 +392,9 @@ export default function App() {
     });
   };
 
-  // SISTEM PENGUNCIAN TRANSAKSI & LOGIKA AUTO APPEND
+  // -------------------------------------------------------------
+  // SISTEM PENGUNCIAN TRANSAKSI (ANTI DOBEL) & SELF-HEALING
+  // -------------------------------------------------------------
   const handleSaveDoc = async (e) => {
     e.preventDefault();
     if (isSubmitting) return; 
@@ -398,7 +402,7 @@ export default function App() {
     
     try {
       if (editingDoc) {
-        // Konstruksi Nomor Berkas Tanpa /
+        
         let formattedNomorBerkas = '';
         if (formData.modelSurat === 'Surat Keterangan / SK') {
             formattedNomorBerkas = `${formData.nomorBerkas.trim()}${formData.nomorUrut}${formData.nomorBerkasBelakang.trim()}`;
@@ -427,13 +431,17 @@ export default function App() {
         };
 
         if (db && fbUser) {
-          await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'laskar_docs', updatedDoc.id), updatedDoc);
+          const batch = writeBatch(db);
+          batch.set(doc(db, 'artifacts', appId, 'public', 'data', 'laskar_docs', updatedDoc.id), updatedDoc);
+          
+          // Perbarui Lock jika nomor atau jenisnya berubah
           if (editingDoc.jenisSurat !== updatedDoc.jenisSurat || editingDoc.nomorUrut !== updatedDoc.nomorUrut) {
               const oldLockId = `lock_${editingDoc.jenisSurat.replace(/\s+/g, '')}_${editingDoc.nomorUrut}`;
               const newLockId = `lock_${updatedDoc.jenisSurat.replace(/\s+/g, '')}_${updatedDoc.nomorUrut}`;
-              await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'laskar_locks', oldLockId)).catch(()=>console.log('No old lock'));
-              await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'laskar_locks', newLockId), { docId: updatedDoc.id, timestamp: new Date().toISOString() });
+              batch.delete(doc(db, 'artifacts', appId, 'public', 'data', 'laskar_locks', oldLockId));
+              batch.set(doc(db, 'artifacts', appId, 'public', 'data', 'laskar_locks', newLockId), { docId: updatedDoc.id, timestamp: new Date().toISOString() });
           }
+          await batch.commit();
         } else {
           setDocuments(documents.map(d => d.id === editingDoc.id ? updatedDoc : d));
         }
@@ -464,8 +472,20 @@ export default function App() {
                       const lockRef = doc(db, 'artifacts', appId, 'public', 'data', 'laskar_locks', lockId);
 
                       const lockSnap = await transaction.get(lockRef);
+                      
+                      // SELF-HEALING: Periksa apakah gembok ini yatim (orphaned)
                       if (lockSnap.exists()) {
-                          throw new Error("NUM_TAKEN");
+                          const lockData = lockSnap.data();
+                          if (lockData.docId) {
+                              const linkedDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'laskar_docs', lockData.docId);
+                              const linkedDocSnap = await transaction.get(linkedDocRef);
+                              if (linkedDocSnap.exists()) {
+                                  throw new Error("NUM_TAKEN"); // Dokumen benar-benar ada, tabrakan asli
+                              }
+                              // Jika terdeteksi Gembok Nyasar (Linked doc tidak ada), lanjut timpa!
+                          } else {
+                              throw new Error("NUM_TAKEN"); 
+                          }
                       }
 
                       let formattedNomorBerkas = '';
@@ -543,6 +563,9 @@ export default function App() {
     }
   };
 
+  // -------------------------------------------------------------
+  // FITUR PENGHAPUSAN INDIVIDUAL DENGAN WRITEBATCH
+  // -------------------------------------------------------------
   const handleDeleteDoc = (id, e) => {
     e.stopPropagation();
     setConfirmDialog({
@@ -552,9 +575,11 @@ export default function App() {
         if (db && fbUser) {
           const docItem = documents.find(d => d.id === id);
           if (docItem) {
+            const batch = writeBatch(db);
             const lockId = `lock_${docItem.jenisSurat.replace(/\s+/g, '')}_${docItem.nomorUrut}`;
-            await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'laskar_docs', id));
-            await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'laskar_locks', lockId)).catch(()=>console.log('No lock to delete'));
+            batch.delete(doc(db, 'artifacts', appId, 'public', 'data', 'laskar_docs', id));
+            batch.delete(doc(db, 'artifacts', appId, 'public', 'data', 'laskar_locks', lockId));
+            await batch.commit().catch(e => console.error("Gagal menghapus", e));
           }
         } else {
           setDocuments(prev => prev.filter(d => d.id !== id));
@@ -938,17 +963,6 @@ export default function App() {
                          let editModelSurat = docItem.modelSurat || 'Surat Biasa';
                          let depan = docItem.nomorBerkasDepan !== undefined ? docItem.nomorBerkasDepan : docItem.nomorBerkas; 
                          let belakang = docItem.nomorBerkasBelakang !== undefined ? docItem.nomorBerkasBelakang : '';
-                         
-                         if (docItem.nomorBerkasDepan === undefined && docItem.nomorBerkas.includes('/')) {
-                             const parts = docItem.nomorBerkas.split('/');
-                             if (parts.length >= 3) {
-                                 editModelSurat = 'Surat Keterangan / SK';
-                                 depan = parts[0];
-                                 belakang = parts.slice(2).join('/');
-                             } else if (parts.length === 2) {
-                                 depan = parts[0];
-                             }
-                         }
 
                          setEditingDoc(docItem); 
                          setFormData({
