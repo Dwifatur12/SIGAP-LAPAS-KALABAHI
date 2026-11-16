@@ -128,14 +128,13 @@ export default function App() {
 
   const [formData, setFormData] = useState({
     jenisSurat: 'Surat Keluar',
-    modelSurat: 'Surat Biasa',
+    formatSurat: 'Naskah Dinas Korespondensi/ Khusus',
     nomorUrut: 1,
     nomorBerkas: '',
     nomorBerkasBelakang: '',
     alamatPenerima: '', 
     tanggal: new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0], 
-    perihal: '',
-    nomorPetunjuk: ''
+    perihal: ''
   });
 
   const resetForm = () => {
@@ -145,14 +144,13 @@ export default function App() {
     
     setFormData({
       jenisSurat: 'Surat Keluar',
-      modelSurat: 'Surat Biasa',
+      formatSurat: 'Naskah Dinas Korespondensi/ Khusus',
       nomorUrut: getNextNomorUrut('Surat Keluar', documents),
       nomorBerkas: '', 
       nomorBerkasBelakang: '',
       alamatPenerima: '', 
       tanggal: localISODate, 
-      perihal: '',
-      nomorPetunjuk: ''
+      perihal: ''
     });
   };
 
@@ -343,7 +341,7 @@ export default function App() {
   };
 
   // -------------------------------------------------------------
-  // FITUR PILIH BANYAK (BULK SELECTION) DENGAN PEMBERSIHAN GEMBOK (WRITEBATCH)
+  // FITUR PILIH BANYAK (BULK SELECTION)
   // -------------------------------------------------------------
   const handleToggleSelectDoc = (id, e) => {
     if (e) e.stopPropagation();
@@ -392,19 +390,19 @@ export default function App() {
     });
   };
 
-  // -------------------------------------------------------------
-  // SISTEM PENGUNCIAN TRANSAKSI (ANTI DOBEL) & SELF-HEALING
-  // -------------------------------------------------------------
+  // SISTEM PENGUNCIAN TRANSAKSI & LOGIKA AUTO APPEND
   const handleSaveDoc = async (e) => {
     e.preventDefault();
     if (isSubmitting) return; 
     setIsSubmitting(true);    
     
+    const isTwoPart = formData.formatSurat === 'Naskah Dinas Penetapan' || formData.formatSurat === 'Naskah Dinas Korespondensi/ Khusus';
+
     try {
       if (editingDoc) {
         
         let formattedNomorBerkas = '';
-        if (formData.modelSurat === 'Surat Keterangan / SK') {
+        if (isTwoPart) {
             formattedNomorBerkas = `${formData.nomorBerkas.trim()}${formData.nomorUrut}${formData.nomorBerkasBelakang.trim()}`;
         } else {
             formattedNomorBerkas = `${formData.nomorBerkas.trim()}${formData.nomorUrut}`;
@@ -413,7 +411,7 @@ export default function App() {
         const finalDataToSave = { 
             ...formData, 
             nomorBerkasDepan: formData.nomorBerkas.trim(),
-            nomorBerkasBelakang: formData.modelSurat === 'Surat Keterangan / SK' ? formData.nomorBerkasBelakang.trim() : '',
+            nomorBerkasBelakang: isTwoPart ? formData.nomorBerkasBelakang.trim() : '',
             nomorBerkas: formattedNomorBerkas 
         };
 
@@ -433,8 +431,6 @@ export default function App() {
         if (db && fbUser) {
           const batch = writeBatch(db);
           batch.set(doc(db, 'artifacts', appId, 'public', 'data', 'laskar_docs', updatedDoc.id), updatedDoc);
-          
-          // Perbarui Lock jika nomor atau jenisnya berubah
           if (editingDoc.jenisSurat !== updatedDoc.jenisSurat || editingDoc.nomorUrut !== updatedDoc.nomorUrut) {
               const oldLockId = `lock_${editingDoc.jenisSurat.replace(/\s+/g, '')}_${editingDoc.nomorUrut}`;
               const newLockId = `lock_${updatedDoc.jenisSurat.replace(/\s+/g, '')}_${updatedDoc.nomorUrut}`;
@@ -472,8 +468,6 @@ export default function App() {
                       const lockRef = doc(db, 'artifacts', appId, 'public', 'data', 'laskar_locks', lockId);
 
                       const lockSnap = await transaction.get(lockRef);
-                      
-                      // SELF-HEALING: Periksa apakah gembok ini yatim (orphaned)
                       if (lockSnap.exists()) {
                           const lockData = lockSnap.data();
                           if (lockData.docId) {
@@ -489,7 +483,7 @@ export default function App() {
                       }
 
                       let formattedNomorBerkas = '';
-                      if (formData.modelSurat === 'Surat Keterangan / SK') {
+                      if (isTwoPart) {
                           formattedNomorBerkas = `${formData.nomorBerkas.trim()}${currentTarget}${formData.nomorBerkasBelakang.trim()}`;
                       } else {
                           formattedNomorBerkas = `${formData.nomorBerkas.trim()}${currentTarget}`;
@@ -499,7 +493,7 @@ export default function App() {
                         ...formData,
                         nomorUrut: currentTarget,
                         nomorBerkasDepan: formData.nomorBerkas.trim(),
-                        nomorBerkasBelakang: formData.modelSurat === 'Surat Keterangan / SK' ? formData.nomorBerkasBelakang.trim() : '',
+                        nomorBerkasBelakang: isTwoPart ? formData.nomorBerkasBelakang.trim() : '',
                         nomorBerkas: formattedNomorBerkas,
                         id: newId, 
                         updatedBy: adminUser ? adminUser.username : 'Sistem TU',
@@ -563,9 +557,6 @@ export default function App() {
     }
   };
 
-  // -------------------------------------------------------------
-  // FITUR PENGHAPUSAN INDIVIDUAL DENGAN WRITEBATCH
-  // -------------------------------------------------------------
   const handleDeleteDoc = (id, e) => {
     e.stopPropagation();
     setConfirmDialog({
@@ -591,10 +582,10 @@ export default function App() {
 
   const generateTableHtml = () => {
     let html = '<table border="1" style="border-collapse: collapse; width: 100%; font-family: sans-serif; font-size: 12px;"><thead><tr style="background-color: #f0f0f0;">';
-    html += '<th style="padding: 8px;">No. Urut</th><th style="padding: 8px;">Jenis Surat</th><th style="padding: 8px;">Nomor Berkas</th><th style="padding: 8px;">Alamat Penerima</th><th style="padding: 8px;">Tanggal</th><th style="padding: 8px;">Perihal</th><th style="padding: 8px;">No. Petunjuk</th>';
+    html += '<th style="padding: 8px;">No. Urut</th><th style="padding: 8px;">Jenis Surat</th><th style="padding: 8px;">Nomor Berkas</th><th style="padding: 8px;">Alamat Penerima</th><th style="padding: 8px;">Tanggal</th><th style="padding: 8px;">Perihal</th>';
     html += '</tr></thead><tbody>';
     filteredAndSortedDocs.forEach(d => {
-      html += `<tr><td style="padding: 8px;">${d.nomorUrut}</td><td style="padding: 8px;">${d.jenisSurat}</td><td style="padding: 8px;">${d.nomorBerkas}</td><td style="padding: 8px;">${d.alamatPenerima}</td><td style="padding: 8px;">${d.tanggal}</td><td style="padding: 8px;">${d.perihal || '-'}</td><td style="padding: 8px;">${d.nomorPetunjuk}</td></tr>`;
+      html += `<tr><td style="padding: 8px;">${d.nomorUrut}</td><td style="padding: 8px;">${d.jenisSurat}</td><td style="padding: 8px;">${d.nomorBerkas}</td><td style="padding: 8px;">${d.alamatPenerima}</td><td style="padding: 8px;">${d.tanggal}</td><td style="padding: 8px;">${d.perihal || '-'}</td></tr>`;
     });
     html += '</tbody></table>';
     return html;
@@ -731,9 +722,11 @@ export default function App() {
         ::-webkit-scrollbar-thumb:hover { background: #34d399; }
       `}</style>
 
+      {/* DYNAMIC BACKGROUND BLOBS */}
       <div className="fixed top-[-10%] left-[-10%] w-[50vw] h-[50vw] max-w-[600px] max-h-[600px] bg-emerald-800/20 dark:bg-emerald-600/10 rounded-full blur-[100px] -z-10 animate-pulse pointer-events-none mix-blend-multiply dark:mix-blend-lighten" style={{animationDuration: '8s'}}></div>
       <div className="fixed bottom-[-10%] right-[-5%] w-[60vw] h-[60vw] max-w-[700px] max-h-[700px] bg-orange-500/20 dark:bg-orange-600/10 rounded-full blur-[120px] -z-10 animate-pulse pointer-events-none mix-blend-multiply dark:mix-blend-lighten" style={{animationDuration: '10s'}}></div>
 
+      {/* GLOBAL TOAST */}
       {toast && (
         <div className={`fixed top-6 left-1/2 -translate-x-1/2 z-[300] px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-top-10 fade-in duration-300 backdrop-blur-md border ${toast.type === 'error' ? 'bg-rose-600/90 border-rose-500 text-white' : 'bg-emerald-600/90 border-emerald-500 text-white'}`}>
           {toast.type === 'error' ? <AlertCircle size={22}/> : <CheckCircle2 size={22}/>}
@@ -753,6 +746,7 @@ export default function App() {
         </div>
       )}
 
+      {/* HEADER GLOBAL */}
       <header className={`fixed top-0 left-1/2 -translate-x-1/2 z-50 px-6 py-4 flex justify-between items-center pointer-events-none transition-all duration-500 w-full ${isMobileView ? 'max-w-[480px]' : 'max-w-full'}`}>
         <div className="glass-card px-5 py-3 rounded-2xl pointer-events-auto flex items-center gap-3 shadow-lg hover:shadow-xl transition-shadow">
           <div className="flex items-center gap-1">
@@ -797,6 +791,7 @@ export default function App() {
 
       <main className={`pt-32 px-6 mx-auto relative z-10 flex flex-col transition-all duration-500 w-full ${isMobileView ? 'max-w-[480px]' : 'max-w-7xl'}`}>
         
+        {/* HERO SECTION */}
         <div className="text-center mb-16 animate-in slide-in-from-bottom-8 duration-700">
           <div className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-50 dark:bg-emerald-800/20 text-emerald-800 dark:text-emerald-400 rounded-full text-[10px] font-black uppercase tracking-widest border border-emerald-200/50 dark:border-emerald-700/30 shadow-sm mb-6">
             <div className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></div>
@@ -813,6 +808,7 @@ export default function App() {
           </p>
         </div>
 
+        {/* DASHBOARD STATISTIK */}
         <div className="max-w-5xl mx-auto mb-10 animate-in fade-in zoom-in duration-500 w-full">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="glass-card p-6 md:p-8 rounded-[2.5rem] shadow-xl border border-emerald-500/20 relative overflow-hidden flex items-center gap-6 group hover:shadow-2xl hover:border-emerald-500/40 transition-all">
@@ -859,6 +855,7 @@ export default function App() {
           </div>
         </div>
 
+        {/* SEARCH, FILTER & SORTING BAR */}
         <div className={`max-w-5xl mx-auto glass-card p-4 rounded-[2rem] flex gap-4 shadow-xl border border-white/40 dark:border-slate-700/50 w-full ${isMobileView ? 'flex-col' : 'flex-col md:flex-row'}`}>
           <div className="relative flex-1">
             <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
@@ -889,6 +886,7 @@ export default function App() {
           </div>
         </div>
 
+        {/* TOMBOL AKSI LAPORAN & TAMBAH MANUAL (HANYA MUNCUL JIKA ADA ADMIN LOGIN) */}
         {isAdmin && (
           <div className={`max-w-5xl mx-auto mt-6 flex justify-between animate-in fade-in zoom-in duration-500 gap-3 ${isMobileView ? 'flex-col px-4' : 'flex-wrap'}`}>
             <div className="flex gap-2">
@@ -926,6 +924,7 @@ export default function App() {
           </div>
         )}
 
+        {/* DOCUMENTS GRID */}
         {paginatedDocs.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center animate-in fade-in duration-500 opacity-60 mt-20">
             <FileText size={80} className="text-slate-400 dark:text-slate-600 mb-6" />
@@ -960,14 +959,25 @@ export default function App() {
                       <button onClick={(e) => { 
                          e.stopPropagation(); 
                          
-                         let editModelSurat = docItem.modelSurat || 'Surat Biasa';
+                         let editFormatSurat = docItem.formatSurat || (docItem.modelSurat === 'Surat Keterangan / SK' ? 'Naskah Dinas Penetapan' : 'Naskah Dinas Korespondensi/ Khusus');
                          let depan = docItem.nomorBerkasDepan !== undefined ? docItem.nomorBerkasDepan : docItem.nomorBerkas; 
                          let belakang = docItem.nomorBerkasBelakang !== undefined ? docItem.nomorBerkasBelakang : '';
+
+                         if (docItem.nomorBerkasDepan === undefined && docItem.nomorBerkas.includes('/')) {
+                             const parts = docItem.nomorBerkas.split('/');
+                             if (parts.length >= 3) {
+                                 editFormatSurat = 'Naskah Dinas Penetapan';
+                                 depan = parts[0];
+                                 belakang = parts.slice(2).join('/');
+                             } else if (parts.length === 2) {
+                                 depan = parts[0];
+                             }
+                         }
 
                          setEditingDoc(docItem); 
                          setFormData({
                             ...docItem, 
-                            modelSurat: editModelSurat,
+                            formatSurat: editFormatSurat,
                             nomorBerkas: depan,
                             nomorBerkasBelakang: belakang
                          }); 
@@ -1048,6 +1058,7 @@ export default function App() {
           </div>
         )}
 
+        {/* PAGINATION CONTROLS */}
         {filteredAndSortedDocs.length > 0 && (
           <div className={`pt-6 flex justify-between items-center gap-4 glass-card p-4 rounded-[2rem] w-full ${isMobileView ? 'flex-col' : 'flex-col sm:flex-row'}`}>
             <div className="flex items-center gap-3 w-full sm:w-auto">
@@ -1228,10 +1239,6 @@ export default function App() {
                       <p className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5 mb-1"><FileText size={12}/> No. Berkas</p>
                       <p className="text-sm font-black text-slate-900 dark:text-white">{selectedDoc.nomorBerkas || '-'}</p>
                     </div>
-                    <div className="bg-white/60 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
-                      <p className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5 mb-1"><FileText size={12}/> No. Petunjuk</p>
-                      <p className="text-sm font-black text-slate-900 dark:text-white">{selectedDoc.nomorPetunjuk || '-'}</p>
-                    </div>
                   </div>
                   <div className="text-right">
                      <p className="text-[10px] font-bold text-slate-400">Pembaruan Terakhir Oleh: <span className="text-orange-600">{selectedDoc.updatedBy}</span></p>
@@ -1309,14 +1316,15 @@ export default function App() {
                     </select>
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-black uppercase text-slate-800 dark:text-slate-400 ml-1">Model Surat</label>
+                    <label className="text-[10px] font-black uppercase text-slate-800 dark:text-slate-400 ml-1">Format Surat</label>
                     <select 
-                      value={formData.modelSurat || 'Surat Biasa'} 
-                      onChange={e => setFormData({...formData, modelSurat: e.target.value})} 
+                      value={formData.formatSurat || 'Naskah Dinas Korespondensi/ Khusus'} 
+                      onChange={e => setFormData({...formData, formatSurat: e.target.value})} 
                       className="w-full px-5 py-4 premium-input rounded-2xl text-xs font-bold outline-none transition-all text-slate-900 dark:text-white cursor-pointer"
                     >
-                      <option value="Surat Biasa">Surat Biasa</option>
-                      <option value="Surat Keterangan / SK">Surat Keterangan (SK)</option>
+                      <option value="Naskah Dinas Pengaturan/ Penugasan">Naskah Dinas Pengaturan/ Penugasan</option>
+                      <option value="Naskah Dinas Penetapan">Naskah Dinas Penetapan (SK)</option>
+                      <option value="Naskah Dinas Korespondensi/ Khusus">Naskah Dinas Korespondensi/ Khusus</option>
                     </select>
                   </div>
                   <div className="space-y-1.5">
@@ -1331,23 +1339,35 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className={`grid gap-5 ${formData.modelSurat === 'Surat Keterangan / SK' ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-1 md:grid-cols-2'}`}>
-                  <div className={`space-y-1.5 ${formData.modelSurat === 'Surat Keterangan / SK' ? 'sm:col-span-1' : ''}`}>
-                    <label className="text-[10px] font-black uppercase text-slate-800 dark:text-slate-400 ml-1">Nomor Berkas (Depan)</label>
-                    <input type="text" value={formData.nomorBerkas} onChange={e=>setFormData({...formData, nomorBerkas: e.target.value})} placeholder="Contoh: W22.PAS..." className="w-full px-5 py-4 premium-input rounded-2xl text-xs font-bold outline-none transition-all text-slate-900 dark:text-white" required />
+                <div className={`grid gap-5 ${(formData.formatSurat === 'Naskah Dinas Penetapan' || formData.formatSurat === 'Naskah Dinas Korespondensi/ Khusus') ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}`}>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black uppercase text-slate-800 dark:text-slate-400 ml-1">
+                      {(formData.formatSurat === 'Naskah Dinas Penetapan' || formData.formatSurat === 'Naskah Dinas Korespondensi/ Khusus') ? 'Nomor Berkas (Depan)' : 'Nomor Berkas'}
+                    </label>
+                    <textarea 
+                      value={formData.nomorBerkas} 
+                      onChange={e=>setFormData({...formData, nomorBerkas: e.target.value})} 
+                      placeholder={
+                        formData.formatSurat === 'Naskah Dinas Penetapan' ? 'Contoh: WP.22.PAS.6/' : 
+                        (formData.formatSurat === 'Naskah Dinas Korespondensi/ Khusus' ? 'Contoh: WP.22.PAS.6/PK.05.01/' : 'Contoh: WP.22.PAS.6/PK.05.01/')
+                      } 
+                      className="w-full px-5 py-4 premium-input rounded-2xl text-xs font-bold outline-none transition-all resize-y focus:min-h-[100px] text-slate-900 dark:text-white" 
+                      rows={1} required></textarea>
                   </div>
                   
-                  {formData.modelSurat === 'Surat Keterangan / SK' && (
-                    <div className="space-y-1.5 sm:col-span-1">
+                  {(formData.formatSurat === 'Naskah Dinas Penetapan' || formData.formatSurat === 'Naskah Dinas Korespondensi/ Khusus') && (
+                    <div className="space-y-1.5">
                       <label className="text-[10px] font-black uppercase text-slate-800 dark:text-slate-400 ml-1">Nomor Berkas (Belakang)</label>
-                      <input type="text" value={formData.nomorBerkasBelakang || ''} onChange={e=>setFormData({...formData, nomorBerkasBelakang: e.target.value})} placeholder="Contoh: KP.04.01-Tahun" className="w-full px-5 py-4 premium-input rounded-2xl text-xs font-bold outline-none transition-all text-slate-900 dark:text-white" required />
+                      <textarea 
+                        value={formData.nomorBerkasBelakang || ''} 
+                        onChange={e=>setFormData({...formData, nomorBerkasBelakang: e.target.value})} 
+                        placeholder={
+                          formData.formatSurat === 'Naskah Dinas Penetapan' ? 'Contoh: /SA.04.01/2026' : 'Contoh: /2026'
+                        } 
+                        className="w-full px-5 py-4 premium-input rounded-2xl text-xs font-bold outline-none transition-all resize-y focus:min-h-[100px] text-slate-900 dark:text-white" 
+                        rows={1} required></textarea>
                     </div>
                   )}
-
-                  <div className={`space-y-1.5 ${formData.modelSurat === 'Surat Keterangan / SK' ? 'sm:col-span-1' : ''}`}>
-                    <label className="text-[10px] font-black uppercase text-slate-800 dark:text-slate-400 ml-1">Nomor Petunjuk</label>
-                    <input type="text" value={formData.nomorPetunjuk} onChange={e=>setFormData({...formData, nomorPetunjuk: e.target.value})} placeholder="Kode petunjuk" className="w-full px-5 py-4 premium-input rounded-2xl text-xs font-bold outline-none transition-all text-slate-900 dark:text-white" />
-                  </div>
                 </div>
 
                 <div className="space-y-1.5">
@@ -1447,11 +1467,11 @@ export default function App() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-black uppercase text-slate-800 dark:text-slate-400 ml-1">Mulai Surat Masuk</label>
-                    <input type="number" value={settingsForm.startAgendaMasuk || ''} onChange={e=>setSettingsForm({...settingsForm, startAgendaMasuk: Number(e.target.value)})} className="w-full px-4 py-3 premium-input rounded-xl text-xs font-bold outline-none transition-all text-slate-900 dark:text-white" />
+                    <input type="number" min="1" value={settingsForm.startAgendaMasuk || ''} onChange={e=>setSettingsForm({...settingsForm, startAgendaMasuk: parseInt(e.target.value) || 1})} className="w-full px-4 py-3 premium-input rounded-xl text-xs font-bold outline-none transition-all text-slate-900 dark:text-white" />
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-black uppercase text-slate-800 dark:text-slate-400 ml-1">Mulai Surat Keluar</label>
-                    <input type="number" value={settingsForm.startAgendaKeluar || ''} onChange={e=>setSettingsForm({...settingsForm, startAgendaKeluar: Number(e.target.value)})} className="w-full px-4 py-3 premium-input rounded-xl text-xs font-bold outline-none transition-all text-slate-900 dark:text-white" />
+                    <input type="number" min="1" value={settingsForm.startAgendaKeluar || ''} onChange={e=>setSettingsForm({...settingsForm, startAgendaKeluar: parseInt(e.target.value) || 1})} className="w-full px-4 py-3 premium-input rounded-xl text-xs font-bold outline-none transition-all text-slate-900 dark:text-white" />
                   </div>
                 </div>
               </div>
