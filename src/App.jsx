@@ -59,6 +59,21 @@ const formatDateIndo = (dateStr) => {
   }).format(new Date(dateStr));
 };
 
+const formatDateTimeIndo = (dateStr) => {
+  if (!dateStr) return '-';
+  if (typeof dateStr === 'string' && dateStr.includes('T')) {
+    const dateObj = new Date(dateStr);
+    const datePart = new Intl.DateTimeFormat('id-ID', {
+      day: 'numeric', month: 'long', year: 'numeric'
+    }).format(dateObj);
+    const timePart = new Intl.DateTimeFormat('id-ID', {
+      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+    }).format(dateObj);
+    return `${datePart} • ${timePart} WITA`;
+  }
+  return formatDateIndo(dateStr);
+};
+
 const getStatusBadgeClass = (jenisSurat) => {
   return jenisSurat === 'Surat Masuk' 
     ? 'bg-emerald-500 text-white shadow-emerald-500/30' 
@@ -101,6 +116,8 @@ export default function App() {
 
   const [startAgendaMasuk, setStartAgendaMasuk] = useState(1);
   const [startAgendaKeluar, setStartAgendaKeluar] = useState(1);
+  const [agendaModeMasuk, setAgendaModeMasuk] = useState('auto');
+  const [agendaModeKeluar, setAgendaModeKeluar] = useState('auto');
   
   const [showSettings, setShowSettings] = useState(false);
   const [showSettingsPassword, setShowSettingsPassword] = useState(false);
@@ -114,13 +131,23 @@ export default function App() {
   const [selectedItemsForAction, setSelectedItemsForAction] = useState([]);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
 
-  // Mencari celah nomor kosong secara lokal
+  // Mencari celah nomor kosong secara lokal (mengikuti mode Otomatis atau Kustom)
   const getNextNomorUrut = (jenisSuratType, currentDocs) => {
     const filtered = currentDocs.filter(d => d.jenisSurat === jenisSuratType);
-    const baseNumber = jenisSuratType === 'Surat Masuk' ? startAgendaMasuk : startAgendaKeluar;
-    
+    const mode = jenisSuratType === 'Surat Masuk' ? agendaModeMasuk : agendaModeKeluar;
+    const customStart = jenisSuratType === 'Surat Masuk' ? startAgendaMasuk : startAgendaKeluar;
+
+    let baseNumber = Number(customStart) || 1;
+    if (mode === 'auto') {
+      const existingNums = filtered
+        .map(d => Number(d.nomorUrut))
+        .filter(n => !isNaN(n) && n > 0);
+      baseNumber = existingNums.length > 0 ? Math.min(...existingNums) : 1;
+    }
+
+    const usedNumbers = new Set(filtered.map(d => Number(d.nomorUrut)));
     let nextNum = baseNumber;
-    while (filtered.some(d => Number(d.nomorUrut) === nextNum)) {
+    while (usedNumbers.has(nextNum)) {
       nextNum++;
     }
     return nextNum;
@@ -128,7 +155,7 @@ export default function App() {
 
   const [formData, setFormData] = useState({
     jenisSurat: 'Surat Keluar',
-    formatSurat: 'Naskah Dinas Korespondensi/ Khusus',
+    formatSurat: 'Naskah Dinas Pengaturan/ Penugasan',
     nomorUrut: 1,
     nomorBerkas: '',
     nomorBerkasBelakang: '',
@@ -144,7 +171,7 @@ export default function App() {
     
     setFormData({
       jenisSurat: 'Surat Keluar',
-      formatSurat: 'Naskah Dinas Korespondensi/ Khusus',
+      formatSurat: 'Naskah Dinas Pengaturan/ Penugasan',
       nomorUrut: getNextNomorUrut('Surat Keluar', documents),
       nomorBerkas: '', 
       nomorBerkasBelakang: '',
@@ -198,6 +225,8 @@ export default function App() {
         if (data.autoLogoutMinutes) setAutoLogoutMinutes(data.autoLogoutMinutes);
         if (data.startAgendaMasuk) setStartAgendaMasuk(Number(data.startAgendaMasuk));
         if (data.startAgendaKeluar) setStartAgendaKeluar(Number(data.startAgendaKeluar));
+        if (data.agendaModeMasuk) setAgendaModeMasuk(data.agendaModeMasuk);
+        if (data.agendaModeKeluar) setAgendaModeKeluar(data.agendaModeKeluar);
       }
     }, (error) => console.error("Firestore Config Error:", error));
 
@@ -249,6 +278,99 @@ export default function App() {
     setCurrentPage(1);
   }, [searchTerm, sortBy, itemsPerPage]);
 
+  // ==========================================
+  // LENIS SMOOTH SCROLL & GSAP SCROLLTRIGGER
+  // ==========================================
+  useEffect(() => {
+    let lenisInstance;
+    let tickerCallback;
+    let gsapContext;
+    let isMounted = true;
+
+    const loadScript = (src) => new Promise((resolve, reject) => {
+      const existing = document.querySelector(`script[src="${src}"]`);
+      if (existing) {
+        if (existing.getAttribute('data-loaded') === 'true') return resolve();
+        existing.addEventListener('load', resolve);
+        existing.addEventListener('error', reject);
+        return;
+      }
+      const s = document.createElement('script');
+      s.src = src;
+      s.async = true;
+      s.onload = () => {
+        s.setAttribute('data-loaded', 'true');
+        resolve();
+      };
+      s.onerror = reject;
+      document.head.appendChild(s);
+    });
+
+    const initMotion = async () => {
+      try {
+        await loadScript('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js');
+        await loadScript('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js');
+        await loadScript('https://unpkg.com/@studio-freight/lenis@1.0.42/dist/lenis.min.js');
+
+        if (!isMounted) return;
+
+        if (window.Lenis && window.gsap && window.ScrollTrigger) {
+          window.gsap.registerPlugin(window.ScrollTrigger);
+
+          // 1. Inisialisasi Lenis Smooth Scroll
+          lenisInstance = new window.Lenis({
+            duration: 1.2,
+            easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+            smoothWheel: true,
+          });
+
+          lenisInstance.on('scroll', window.ScrollTrigger.update);
+
+          tickerCallback = (time) => {
+            lenisInstance.raf(time * 1000);
+          };
+          window.gsap.ticker.add(tickerCallback);
+          window.gsap.ticker.lagSmoothing(0);
+
+          // 2. Animasi GSAP Judul Muncul Per Kata saat di-Scroll
+          gsapContext = window.gsap.context(() => {
+            const wordElements = document.querySelectorAll('.gsap-word');
+            if (wordElements.length > 0) {
+              window.gsap.fromTo(
+                wordElements,
+                { y: 40, opacity: 0, rotateX: -20 },
+                {
+                  y: 0,
+                  opacity: 1,
+                  rotateX: 0,
+                  duration: 0.85,
+                  stagger: 0.08,
+                  ease: 'power3.out',
+                  scrollTrigger: {
+                    trigger: '.gsap-hero-trigger',
+                    start: 'top 85%',
+                    toggleActions: 'play none none reverse',
+                  },
+                }
+              );
+            }
+          });
+        }
+      } catch (err) {
+        console.warn('Gagal memuat library animasi:', err);
+      }
+    };
+
+    initMotion();
+
+    return () => {
+      isMounted = false;
+      if (gsapContext) gsapContext.revert();
+      if (window.gsap && tickerCallback) window.gsap.ticker.remove(tickerCallback);
+      if (lenisInstance) lenisInstance.destroy();
+    };
+  }, []);
+
   useEffect(() => {
     if (!editingDoc && showDocForm) {
       setFormData(prev => ({
@@ -256,7 +378,7 @@ export default function App() {
         nomorUrut: getNextNomorUrut(prev.jenisSurat, documents)
       }));
     }
-  }, [formData.jenisSurat, documents, editingDoc, showDocForm, startAgendaMasuk, startAgendaKeluar]);
+  }, [formData.jenisSurat, documents, editingDoc, showDocForm, startAgendaMasuk, startAgendaKeluar, agendaModeMasuk, agendaModeKeluar]);
 
   const filteredAndSortedDocs = useMemo(() => {
     let result = documents.filter(d => {
@@ -302,6 +424,28 @@ export default function App() {
   const totalPages = Math.ceil(filteredAndSortedDocs.length / safeItemsPerPage);
   const safePage = Number(currentPage) || 1;
   const paginatedDocs = filteredAndSortedDocs.slice((safePage - 1) * safeItemsPerPage, safePage * safeItemsPerPage);
+
+  // Animasi Motion Masuk Card saat data / halaman berubah
+  useEffect(() => {
+    if (window.gsap) {
+      const cards = document.querySelectorAll('.sigap-doc-card');
+      if (cards.length > 0) {
+        window.gsap.fromTo(
+          cards,
+          { y: 35, opacity: 0, scale: 0.96 },
+          {
+            y: 0,
+            opacity: 1,
+            scale: 1,
+            duration: 0.6,
+            stagger: 0.07,
+            ease: 'power3.out',
+            clearProps: 'transform',
+          }
+        );
+      }
+    }
+  }, [paginatedDocs.length, currentPage, sortBy, searchTerm, isMobileView]);
 
   const handleLogin = (e) => {
     e.preventDefault();
@@ -417,7 +561,7 @@ export default function App() {
 
         const newHistoryEntry = {
           version: `v${(editingDoc.history?.length || 0) + 1}.0`,
-          date: new Date().toISOString().split('T')[0],
+          date: new Date().toISOString(),
           updatedBy: adminUser ? adminUser.username : 'Sistem',
           description: `Data arsip diperbarui.`
         };
@@ -431,7 +575,7 @@ export default function App() {
         if (db && fbUser) {
           const batch = writeBatch(db);
           batch.set(doc(db, 'artifacts', appId, 'public', 'data', 'laskar_docs', updatedDoc.id), updatedDoc);
-          if (editingDoc.jenisSurat !== updatedDoc.jenisSurat || editingDoc.nomorUrut !== updatedDoc.nomorUrut) {
+          if (editingDoc.jenisSurat !== updatedDoc.jenisSurat || Number(editingDoc.nomorUrut) !== Number(updatedDoc.nomorUrut)) {
               const oldLockId = `lock_${editingDoc.jenisSurat.replace(/\s+/g, '')}_${editingDoc.nomorUrut}`;
               const newLockId = `lock_${updatedDoc.jenisSurat.replace(/\s+/g, '')}_${updatedDoc.nomorUrut}`;
               batch.delete(doc(db, 'artifacts', appId, 'public', 'data', 'laskar_locks', oldLockId));
@@ -447,21 +591,23 @@ export default function App() {
       } else {
         const exactDate = formData.tanggal;
         const dateCode = exactDate.replace(/-/g, '').substring(2,8);
-        const newId = `DOC-${dateCode}-${Math.floor(Math.random()*1000).toString().padStart(3, '0')}`;
+        // Gunakan timestamp + random agar ID dokumen tidak pernah bentrok/menimpa surat lain di hari yang sama
+        const uniqueSuffix = `${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+        const newId = `DOC-${dateCode}-${uniqueSuffix}`;
         
         if (db && fbUser) {
           const defaultExpectedNumber = formData.jenisSurat === 'Surat Masuk' 
               ? getNextNomorUrut('Surat Masuk', documents) 
               : getNextNomorUrut('Surat Keluar', documents);
 
-          const isSuperAdminCustomOverride = (adminUser?.role === 'superadmin' && formData.nomorUrut !== defaultExpectedNumber);
+          const isSuperAdminCustomOverride = (adminUser?.role === 'superadmin' && Number(formData.nomorUrut) !== Number(defaultExpectedNumber));
           
           let success = false;
           let attempt = 0;
-          let currentTarget = formData.nomorUrut;
+          let currentTarget = isSuperAdminCustomOverride ? Number(formData.nomorUrut) : Number(defaultExpectedNumber);
           let numberWasChanged = false; 
 
-          while (!success && attempt < 15) {
+          while (!success && attempt < 30) {
               try {
                   await runTransaction(db, async (transaction) => {
                       const lockId = `lock_${formData.jenisSurat.replace(/\s+/g, '')}_${currentTarget}`;
@@ -474,12 +620,14 @@ export default function App() {
                               const linkedDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'laskar_docs', lockData.docId);
                               const linkedDocSnap = await transaction.get(linkedDocRef);
                               if (linkedDocSnap.exists()) {
-                                  throw new Error("NUM_TAKEN"); // Dokumen benar-benar ada, tabrakan asli
+                                  const linkedData = linkedDocSnap.data();
+                                  // Hanya dianggap terpakai jika dokumen tertaut benar-benar masih memegang nomor & jenis surat ini
+                                  if (Number(linkedData.nomorUrut) === Number(currentTarget) && linkedData.jenisSurat === formData.jenisSurat) {
+                                      throw new Error("NUM_TAKEN");
+                                  }
                               }
-                              // Jika terdeteksi Gembok Nyasar (Linked doc tidak ada), lanjut timpa!
-                          } else {
-                              throw new Error("NUM_TAKEN"); 
                           }
+                          // Jika gembok yatim/usang (tanpa docId, dokumen sudah terhapus, atau nomornya sudah berubah), gembok otomatis diambil alih
                       }
 
                       let formattedNomorBerkas = '';
@@ -499,7 +647,7 @@ export default function App() {
                         updatedBy: adminUser ? adminUser.username : 'Sistem TU',
                         history: [{ 
                           version: "1.0", 
-                          date: new Date().toISOString().split('T')[0], 
+                          date: new Date().toISOString(), 
                           updatedBy: adminUser ? adminUser.username : 'Petugas', 
                           description: `Pencatatan arsip baru.` 
                         }],
@@ -520,7 +668,7 @@ export default function App() {
                       }
                       numberWasChanged = true; 
                       attempt++;
-                      let nextNum = currentTarget + 1;
+                      let nextNum = Number(currentTarget) + 1;
                       while (documents.some(d => d.jenisSurat === formData.jenisSurat && Number(d.nomorUrut) === nextNum)) {
                           nextNum++;
                       }
@@ -715,6 +863,19 @@ export default function App() {
           background: #0f172a;
         }
 
+        /* Motion Hover Card */
+        .sigap-doc-card {
+          transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.3s ease;
+          will-change: transform, opacity;
+        }
+        .sigap-doc-card:hover {
+          transform: translateY(-8px) scale(1.015);
+          box-shadow: 0 25px 40px -12px rgba(6, 95, 70, 0.22);
+        }
+        .dark .sigap-doc-card:hover {
+          box-shadow: 0 25px 40px -12px rgba(16, 185, 129, 0.18);
+        }
+
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #6ee7b7; border-radius: 10px; }
@@ -759,7 +920,9 @@ export default function App() {
                   superPassword: superAdminCreds.password, 
                   autoLogoutMinutes,
                   startAgendaMasuk: startAgendaMasuk,
-                  startAgendaKeluar: startAgendaKeluar
+                  startAgendaKeluar: startAgendaKeluar,
+                  agendaModeMasuk: agendaModeMasuk,
+                  agendaModeKeluar: agendaModeKeluar
                 }); 
                 setShowSettings(true); 
               }} className="p-1.5 rounded-xl bg-orange-100 dark:bg-orange-800/40 hover:bg-orange-200 transition-all" title="Pengaturan Sistem">
@@ -792,16 +955,18 @@ export default function App() {
       <main className={`pt-32 px-6 mx-auto relative z-10 flex flex-col transition-all duration-500 w-full ${isMobileView ? 'max-w-[480px]' : 'max-w-7xl'}`}>
         
         {/* HERO SECTION */}
-        <div className="text-center mb-16 animate-in slide-in-from-bottom-8 duration-700">
+        <div className="text-center mb-16 gsap-hero-trigger">
           <div className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-50 dark:bg-emerald-800/20 text-emerald-800 dark:text-emerald-400 rounded-full text-[10px] font-black uppercase tracking-widest border border-emerald-200/50 dark:border-emerald-700/30 shadow-sm mb-6">
             <div className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></div>
             Layanan Administrasi Pemasyarakatan
           </div>
           <h1 className={`font-black tracking-tighter leading-[1.1] text-slate-900 dark:text-white mb-4 transition-all duration-500 ${isMobileView ? 'text-4xl' : 'text-5xl md:text-7xl'}`}>
-            SIGAP
+            <span className="inline-block gsap-word">SIGAP</span>
           </h1>
           <h2 className={`font-black tracking-widest text-emerald-800 dark:text-emerald-400 mb-6 uppercase transition-all duration-500 ${isMobileView ? 'text-xs' : 'text-sm md:text-lg'}`}>
-            Sistem Informasi Gabungan Arsip Pemasyarakatan
+            {'Sistem Informasi Gabungan Arsip Pemasyarakatan'.split(' ').map((word, i) => (
+              <span key={i} className="inline-block gsap-word mr-2">{word}</span>
+            ))}
           </h2>
           <p className={`max-w-2xl mx-auto font-semibold text-slate-600 dark:text-slate-400 leading-relaxed transition-all duration-500 ${isMobileView ? 'text-xs' : 'text-sm md:text-base'} mb-10`}>
             Sistem pengarsipan dan manajemen persuratan (Surat Masuk & Surat Keluar) untuk efisiensi tata usaha Lapas Kelas IIB Kalabahi.
@@ -932,16 +1097,15 @@ export default function App() {
             <p className="text-sm font-bold text-slate-500">Silakan sesuaikan filter kata kunci Anda.</p>
           </div>
         ) : (
-          <div className={`grid gap-6 animate-in slide-in-from-bottom-12 duration-1000 delay-150 mt-10 mb-10 w-full ${isMobileView ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'}`}>
-            {paginatedDocs.map((docItem, idx) => {
+          <div className={`grid gap-6 mt-10 mb-10 w-full ${isMobileView ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'}`}>
+            {paginatedDocs.map((docItem) => {
               const isSelected = selectedItemsForAction.includes(docItem.id);
 
               return (
                 <div 
                   key={docItem.id} 
                   onClick={isSelectionMode ? () => handleToggleSelectDoc(docItem.id) : undefined}
-                  className={`glass-card p-6 rounded-[2rem] border shadow-lg hover:shadow-2xl transition-all duration-300 group flex flex-col h-full relative overflow-hidden ${isSelectionMode ? 'cursor-pointer hover:border-orange-500 hover:ring-2 hover:ring-orange-500/20' : 'hover:-translate-y-2'} ${isSelected ? 'border-orange-500 bg-orange-50/50 dark:bg-orange-900/20 ring-2 ring-orange-500/30' : 'border-slate-300 dark:border-slate-700/50 bg-white/60 dark:bg-slate-900/40'}`}
-                  style={{ animationDelay: `${idx * 100}ms` }}
+                  className={`sigap-doc-card glass-card p-6 rounded-[2rem] border shadow-lg group flex flex-col h-full relative overflow-hidden ${isSelectionMode ? 'cursor-pointer hover:border-orange-500 hover:ring-2 hover:ring-orange-500/20' : ''} ${isSelected ? 'border-orange-500 bg-orange-50/50 dark:bg-orange-900/20 ring-2 ring-orange-500/30' : 'border-slate-300 dark:border-slate-700/50 bg-white/60 dark:bg-slate-900/40'}`}
                 >
                   <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${getStatusBadgeClass(docItem.jenisSurat).split(' ')[0]}`}></div>
 
@@ -1254,7 +1418,7 @@ export default function App() {
                            <div className={`p-4 rounded-2xl border ${i===0 ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800/50' : 'bg-white/60 dark:bg-slate-950/40 border-slate-200 dark:border-slate-800'}`}>
                              <div className="flex justify-between items-start mb-2">
                                <span className="text-[11px] font-black uppercase text-slate-600 dark:text-slate-400">Update {hist.version}</span>
-                               <span className="text-[10px] font-bold text-slate-500">{formatDateIndo(hist.date)}</span>
+                               <span className="text-[10px] font-bold text-slate-500">{formatDateTimeIndo(hist.date)}</span>
                              </div>
                              <p className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Oleh: {hist.updatedBy}</p>
                              <p className="text-[12px] font-medium text-slate-800 dark:text-slate-200 bg-white/50 dark:bg-slate-900/50 p-2.5 rounded-lg mt-2 border border-slate-100 dark:border-slate-800">{hist.description}</p>
@@ -1318,7 +1482,7 @@ export default function App() {
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-black uppercase text-slate-800 dark:text-slate-400 ml-1">Format Surat</label>
                     <select 
-                      value={formData.formatSurat || 'Naskah Dinas Korespondensi/ Khusus'} 
+                      value={formData.formatSurat || 'Naskah Dinas Pengaturan/ Penugasan'} 
                       onChange={e => setFormData({...formData, formatSurat: e.target.value})} 
                       className="w-full px-5 py-4 premium-input rounded-2xl text-xs font-bold outline-none transition-all text-slate-900 dark:text-white cursor-pointer"
                     >
@@ -1465,13 +1629,41 @@ export default function App() {
               <div>
                 <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-4 flex items-center gap-2"><ListOrdered size={16}/> Awal Nomor Agenda (Auto)</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
+                  <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase text-slate-800 dark:text-slate-400 ml-1">Mulai Surat Masuk</label>
-                    <input type="number" min="1" value={settingsForm.startAgendaMasuk || ''} onChange={e=>setSettingsForm({...settingsForm, startAgendaMasuk: parseInt(e.target.value) || 1})} className="w-full px-4 py-3 premium-input rounded-xl text-xs font-bold outline-none transition-all text-slate-900 dark:text-white" />
+                    <select
+                      value={settingsForm.agendaModeMasuk || 'auto'}
+                      onChange={e => setSettingsForm({ ...settingsForm, agendaModeMasuk: e.target.value })}
+                      className="w-full px-4 py-3 premium-input rounded-xl text-xs font-bold outline-none transition-all text-slate-900 dark:text-white cursor-pointer"
+                    >
+                      <option value="auto">Otomatis (Ikuti Nomor Terbaru)</option>
+                      <option value="custom">Kustom (Atur Manual)</option>
+                    </select>
+                    {(settingsForm.agendaModeMasuk || 'auto') === 'custom' ? (
+                      <input type="number" min="1" value={settingsForm.startAgendaMasuk || ''} onChange={e=>setSettingsForm({...settingsForm, startAgendaMasuk: parseInt(e.target.value) || 1})} className="w-full px-4 py-3 premium-input rounded-xl text-xs font-bold outline-none transition-all text-slate-900 dark:text-white" placeholder="Masukkan nomor awal..." />
+                    ) : (
+                      <div className="w-full px-4 py-3 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800/70 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700/60">
+                        Nomor berikutnya otomatis: #{getNextNomorUrut('Surat Masuk', documents)}
+                      </div>
+                    )}
                   </div>
-                  <div className="space-y-1.5">
+                  <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase text-slate-800 dark:text-slate-400 ml-1">Mulai Surat Keluar</label>
-                    <input type="number" min="1" value={settingsForm.startAgendaKeluar || ''} onChange={e=>setSettingsForm({...settingsForm, startAgendaKeluar: parseInt(e.target.value) || 1})} className="w-full px-4 py-3 premium-input rounded-xl text-xs font-bold outline-none transition-all text-slate-900 dark:text-white" />
+                    <select
+                      value={settingsForm.agendaModeKeluar || 'auto'}
+                      onChange={e => setSettingsForm({ ...settingsForm, agendaModeKeluar: e.target.value })}
+                      className="w-full px-4 py-3 premium-input rounded-xl text-xs font-bold outline-none transition-all text-slate-900 dark:text-white cursor-pointer"
+                    >
+                      <option value="auto">Otomatis (Ikuti Nomor Terbaru)</option>
+                      <option value="custom">Kustom (Atur Manual)</option>
+                    </select>
+                    {(settingsForm.agendaModeKeluar || 'auto') === 'custom' ? (
+                      <input type="number" min="1" value={settingsForm.startAgendaKeluar || ''} onChange={e=>setSettingsForm({...settingsForm, startAgendaKeluar: parseInt(e.target.value) || 1})} className="w-full px-4 py-3 premium-input rounded-xl text-xs font-bold outline-none transition-all text-slate-900 dark:text-white" placeholder="Masukkan nomor awal..." />
+                    ) : (
+                      <div className="w-full px-4 py-3 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800/70 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700/60">
+                        Nomor berikutnya otomatis: #{getNextNomorUrut('Surat Keluar', documents)}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1514,7 +1706,9 @@ export default function App() {
                   superPassword: settingsForm.superPassword,
                   autoLogoutMinutes: settingsForm.autoLogoutMinutes,
                   startAgendaMasuk: Number(settingsForm.startAgendaMasuk) || 1,
-                  startAgendaKeluar: Number(settingsForm.startAgendaKeluar) || 1
+                  startAgendaKeluar: Number(settingsForm.startAgendaKeluar) || 1,
+                  agendaModeMasuk: settingsForm.agendaModeMasuk || 'auto',
+                  agendaModeKeluar: settingsForm.agendaModeKeluar || 'auto'
                 };
                 
                 if (db && fbUser) {
@@ -1532,6 +1726,8 @@ export default function App() {
                 setAutoLogoutMinutes(newConfig.autoLogoutMinutes);
                 setStartAgendaMasuk(newConfig.startAgendaMasuk);
                 setStartAgendaKeluar(newConfig.startAgendaKeluar);
+                setAgendaModeMasuk(newConfig.agendaModeMasuk);
+                setAgendaModeKeluar(newConfig.agendaModeKeluar);
 
                 localStorage.setItem('laskarAdminCreds', JSON.stringify({ username: newConfig.adminUsername, password: newConfig.adminPassword }));
                 localStorage.setItem('laskarSuperAdminCreds', JSON.stringify({ username: newConfig.superUsername, password: newConfig.superPassword }));
