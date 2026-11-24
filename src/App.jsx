@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   Shield, Moon, Sun, Clock, Search, 
   FileText, CheckCircle2, AlertCircle, X,
@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from 'firebase/auth';
-import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, runTransaction, writeBatch } from 'firebase/firestore';
+import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, runTransaction, writeBatch, getDoc, getDocs } from 'firebase/firestore';
 
 // Polyfill sederhana agar Tailwind tidak menyebabkan error undefined saat loading di preview
 if (typeof window !== 'undefined') { window.tailwind = window.tailwind || {}; }
@@ -130,27 +130,83 @@ export default function App() {
   
   const [selectedItemsForAction, setSelectedItemsForAction] = useState([]);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const lenisRef = useRef(null);
 
-  // Mencari celah nomor kosong secara lokal (mengikuti mode Otomatis atau Kustom)
-  const getNextNomorUrut = (jenisSuratType, currentDocs) => {
+  // Mencari nomor urut berikutnya berdasarkan database terbaru (mode Otomatis atau Kustom)
+  const getNextNomorUrut = (jenisSuratType, currentDocs, modeOverride, customStartOverride) => {
     const filtered = currentDocs.filter(d => d.jenisSurat === jenisSuratType);
-    const mode = jenisSuratType === 'Surat Masuk' ? agendaModeMasuk : agendaModeKeluar;
-    const customStart = jenisSuratType === 'Surat Masuk' ? startAgendaMasuk : startAgendaKeluar;
+    const mode = modeOverride ?? (jenisSuratType === 'Surat Masuk' ? agendaModeMasuk : agendaModeKeluar);
+    const customStart = customStartOverride ?? (jenisSuratType === 'Surat Masuk' ? startAgendaMasuk : startAgendaKeluar);
 
-    let baseNumber = Number(customStart) || 1;
+    const existingNums = filtered
+      .map(d => Number(d.nomorUrut))
+      .filter(n => !isNaN(n) && n > 0);
+
     if (mode === 'auto') {
-      const existingNums = filtered
-        .map(d => Number(d.nomorUrut))
-        .filter(n => !isNaN(n) && n > 0);
-      baseNumber = existingNums.length > 0 ? Math.min(...existingNums) : 1;
+      return existingNums.length > 0 ? Math.max(...existingNums) + 1 : 1;
     }
 
-    const usedNumbers = new Set(filtered.map(d => Number(d.nomorUrut)));
+    const baseNumber = Number(customStart) || 1;
+    const usedNumbers = new Set(existingNums);
     let nextNum = baseNumber;
     while (usedNumbers.has(nextNum)) {
       nextNum++;
     }
     return nextNum;
+  };
+
+  // Menarik data pengaturan dan arsip terbaru langsung dari database saat membuka menu Super Admin
+  const handleOpenSettings = async () => {
+    let latestConfig = {
+      username: adminCreds.username,
+      password: adminCreds.password,
+      superUsername: superAdminCreds.username,
+      superPassword: superAdminCreds.password,
+      autoLogoutMinutes,
+      startAgendaMasuk,
+      startAgendaKeluar,
+      agendaModeMasuk,
+      agendaModeKeluar
+    };
+
+    if (db && fbUser) {
+      try {
+        const configRef = doc(db, 'artifacts', appId, 'public', 'data', 'laskar_config', 'global_settings');
+        const docsRef = collection(db, 'artifacts', appId, 'public', 'data', 'laskar_docs');
+        const [configSnap, docsSnap] = await Promise.all([getDoc(configRef), getDocs(docsRef)]);
+
+        const freshDocs = docsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        setDocuments(freshDocs);
+
+        if (configSnap.exists()) {
+          const data = configSnap.data();
+          latestConfig = {
+            username: data.adminUsername || latestConfig.username,
+            password: data.adminPassword || latestConfig.password,
+            superUsername: data.superUsername || latestConfig.superUsername,
+            superPassword: data.superPassword || latestConfig.superPassword,
+            autoLogoutMinutes: data.autoLogoutMinutes || latestConfig.autoLogoutMinutes,
+            startAgendaMasuk: Number(data.startAgendaMasuk) || 1,
+            startAgendaKeluar: Number(data.startAgendaKeluar) || 1,
+            agendaModeMasuk: data.agendaModeMasuk || 'auto',
+            agendaModeKeluar: data.agendaModeKeluar || 'auto'
+          };
+
+          setAdminCreds({ username: latestConfig.username, password: latestConfig.password });
+          setSuperAdminCreds({ username: latestConfig.superUsername, password: latestConfig.superPassword });
+          setAutoLogoutMinutes(latestConfig.autoLogoutMinutes);
+          setStartAgendaMasuk(latestConfig.startAgendaMasuk);
+          setStartAgendaKeluar(latestConfig.startAgendaKeluar);
+          setAgendaModeMasuk(latestConfig.agendaModeMasuk);
+          setAgendaModeKeluar(latestConfig.agendaModeKeluar);
+        }
+      } catch (err) {
+        console.error("Gagal menyinkronkan data pengaturan dari database:", err);
+      }
+    }
+
+    setSettingsForm(latestConfig);
+    setShowSettings(true);
   };
 
   const [formData, setFormData] = useState({
@@ -220,9 +276,20 @@ export default function App() {
     const unsubscribeConfig = onSnapshot(configRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
-        if (data.superUsername) setSuperAdminCreds({ username: data.superUsername, password: data.superPassword });
-        if (data.adminUsername) setAdminCreds({ username: data.adminUsername, password: data.adminPassword });
-        if (data.autoLogoutMinutes) setAutoLogoutMinutes(data.autoLogoutMinutes);
+        if (data.superUsername) {
+          const sCreds = { username: data.superUsername, password: data.superPassword };
+          setSuperAdminCreds(sCreds);
+          localStorage.setItem('laskarSuperAdminCreds', JSON.stringify(sCreds));
+        }
+        if (data.adminUsername) {
+          const aCreds = { username: data.adminUsername, password: data.adminPassword };
+          setAdminCreds(aCreds);
+          localStorage.setItem('laskarAdminCreds', JSON.stringify(aCreds));
+        }
+        if (data.autoLogoutMinutes) {
+          setAutoLogoutMinutes(data.autoLogoutMinutes);
+          localStorage.setItem('laskarAutoLogout', data.autoLogoutMinutes.toString());
+        }
         if (data.startAgendaMasuk) setStartAgendaMasuk(Number(data.startAgendaMasuk));
         if (data.startAgendaKeluar) setStartAgendaKeluar(Number(data.startAgendaKeluar));
         if (data.agendaModeMasuk) setAgendaModeMasuk(data.agendaModeMasuk);
@@ -323,6 +390,7 @@ export default function App() {
             easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
             smoothWheel: true,
           });
+          lenisRef.current = lenisInstance;
 
           lenisInstance.on('scroll', window.ScrollTrigger.update);
 
@@ -368,8 +436,18 @@ export default function App() {
       if (gsapContext) gsapContext.revert();
       if (window.gsap && tickerCallback) window.gsap.ticker.remove(tickerCallback);
       if (lenisInstance) lenisInstance.destroy();
+      lenisRef.current = null;
     };
   }, []);
+
+  // Jeda Lenis saat modal terbuka agar scroll di dalam modal berfungsi normal
+  useEffect(() => {
+    const anyModalOpen = showDocForm || showSettings || Boolean(selectedDoc) || showLoginModal || showLogoutConfirm || confirmDialog.isOpen;
+    if (lenisRef.current) {
+      if (anyModalOpen) lenisRef.current.stop();
+      else lenisRef.current.start();
+    }
+  }, [showDocForm, showSettings, selectedDoc, showLoginModal, showLogoutConfirm, confirmDialog.isOpen]);
 
   useEffect(() => {
     if (!editingDoc && showDocForm) {
@@ -912,20 +990,7 @@ export default function App() {
         <div className="glass-card px-5 py-3 rounded-2xl pointer-events-auto flex items-center gap-3 shadow-lg hover:shadow-xl transition-shadow">
           <div className="flex items-center gap-1">
             {adminUser?.role === 'superadmin' && (
-              <button onClick={() => { 
-                setSettingsForm({ 
-                  username: adminCreds.username,
-                  password: adminCreds.password,
-                  superUsername: superAdminCreds.username, 
-                  superPassword: superAdminCreds.password, 
-                  autoLogoutMinutes,
-                  startAgendaMasuk: startAgendaMasuk,
-                  startAgendaKeluar: startAgendaKeluar,
-                  agendaModeMasuk: agendaModeMasuk,
-                  agendaModeKeluar: agendaModeKeluar
-                }); 
-                setShowSettings(true); 
-              }} className="p-1.5 rounded-xl bg-orange-100 dark:bg-orange-800/40 hover:bg-orange-200 transition-all" title="Pengaturan Sistem">
+              <button onClick={handleOpenSettings} className="p-1.5 rounded-xl bg-orange-100 dark:bg-orange-800/40 hover:bg-orange-200 transition-all" title="Pengaturan Sistem">
                 <Settings className="text-orange-600 dark:text-orange-500" size={20}/>
               </button>
             )}
@@ -1387,7 +1452,7 @@ export default function App() {
                </button>
             </div>
 
-            <div className="p-8 overflow-y-auto bg-white/30 dark:bg-slate-900/30 flex-1">
+            <div data-lenis-prevent className="p-8 overflow-y-auto bg-white/30 dark:bg-slate-900/30 flex-1">
               {!showHistory ? (
                 <div className="space-y-6">
                   <div className="grid grid-cols-2 gap-4">
@@ -1463,7 +1528,7 @@ export default function App() {
               </div>
             </div>
 
-            <div className="p-8 overflow-y-auto bg-white/30 dark:bg-slate-900/30 flex-1 hide-scrollbar">
+            <div data-lenis-prevent className="p-8 overflow-y-auto bg-white/30 dark:bg-slate-900/30 flex-1 hide-scrollbar">
               <form id="docFormAdmin" onSubmit={handleSaveDoc} className="space-y-5 text-left">
                 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
@@ -1604,7 +1669,7 @@ export default function App() {
               </div>
             </div>
 
-            <div className="p-8 overflow-y-auto bg-white/30 dark:bg-slate-900/30 flex-1 space-y-8 hide-scrollbar">
+            <div data-lenis-prevent className="p-8 overflow-y-auto bg-white/30 dark:bg-slate-900/30 flex-1 space-y-8 hide-scrollbar">
               <div>
                 <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-4 flex items-center gap-2"><Shield size={16}/> Akun Super Admin</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1643,7 +1708,7 @@ export default function App() {
                       <input type="number" min="1" value={settingsForm.startAgendaMasuk || ''} onChange={e=>setSettingsForm({...settingsForm, startAgendaMasuk: parseInt(e.target.value) || 1})} className="w-full px-4 py-3 premium-input rounded-xl text-xs font-bold outline-none transition-all text-slate-900 dark:text-white" placeholder="Masukkan nomor awal..." />
                     ) : (
                       <div className="w-full px-4 py-3 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800/70 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700/60">
-                        Nomor berikutnya otomatis: #{getNextNomorUrut('Surat Masuk', documents)}
+                        Nomor berikutnya otomatis: #{getNextNomorUrut('Surat Masuk', documents, 'auto')}
                       </div>
                     )}
                   </div>
@@ -1661,7 +1726,7 @@ export default function App() {
                       <input type="number" min="1" value={settingsForm.startAgendaKeluar || ''} onChange={e=>setSettingsForm({...settingsForm, startAgendaKeluar: parseInt(e.target.value) || 1})} className="w-full px-4 py-3 premium-input rounded-xl text-xs font-bold outline-none transition-all text-slate-900 dark:text-white" placeholder="Masukkan nomor awal..." />
                     ) : (
                       <div className="w-full px-4 py-3 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800/70 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700/60">
-                        Nomor berikutnya otomatis: #{getNextNomorUrut('Surat Keluar', documents)}
+                        Nomor berikutnya otomatis: #{getNextNomorUrut('Surat Keluar', documents, 'auto')}
                       </div>
                     )}
                   </div>
