@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
-  Shield, Moon, Sun, Clock, Search, 
+  Shield, Clock, Search, 
   FileText, CheckCircle2, AlertCircle, X,
   ChevronRight, Lock, Users, Settings,
   Plus, Edit, Trash2, Eye, EyeOff,
   LogOut, ArrowUpDown, ListOrdered, Pin,
-  Smartphone, Monitor, UserCheck, CalendarDays, Ticket, Building,
-  Printer, Table, Send, Inbox, CheckSquare
+  UserCheck, CalendarDays, Ticket, Building,
+  Printer, Table, Send, Inbox, CheckSquare, Image as ImageIcon, Upload,
+  Copy, Check, LayoutGrid, List, Filter, RotateCcw, CopyPlus, Wifi, WifiOff
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from 'firebase/auth';
@@ -61,17 +62,33 @@ const formatDateIndo = (dateStr) => {
 
 const formatDateTimeIndo = (dateStr) => {
   if (!dateStr) return '-';
-  if (typeof dateStr === 'string' && dateStr.includes('T')) {
-    const dateObj = new Date(dateStr);
-    const datePart = new Intl.DateTimeFormat('id-ID', {
-      day: 'numeric', month: 'long', year: 'numeric'
-    }).format(dateObj);
-    const timePart = new Intl.DateTimeFormat('id-ID', {
-      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
-    }).format(dateObj);
-    return `${datePart} • ${timePart} WITA`;
+  let dateObj = null;
+
+  if (typeof dateStr === 'object' && typeof dateStr.toDate === 'function') {
+    dateObj = dateStr.toDate();
+  } else if (typeof dateStr === 'object' && typeof dateStr.seconds === 'number') {
+    dateObj = new Date(dateStr.seconds * 1000);
+  } else if (typeof dateStr === 'number') {
+    dateObj = new Date(dateStr);
+  } else if (typeof dateStr === 'string') {
+    const hasTime = dateStr.includes('T') || dateStr.includes(':');
+    if (!hasTime) {
+      return `${formatDateIndo(dateStr)} • (Jam belum tercatat)`;
+    }
+    dateObj = new Date(dateStr);
   }
-  return formatDateIndo(dateStr);
+
+  if (!dateObj || isNaN(dateObj.getTime())) {
+    return formatDateIndo(dateStr);
+  }
+
+  const datePart = new Intl.DateTimeFormat('id-ID', {
+    day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Makassar'
+  }).format(dateObj);
+  const timePart = new Intl.DateTimeFormat('id-ID', {
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZone: 'Asia/Makassar'
+  }).format(dateObj);
+  return `${datePart} • ${timePart} WITA`;
 };
 
 const getStatusBadgeClass = (jenisSurat) => {
@@ -80,12 +97,118 @@ const getStatusBadgeClass = (jenisSurat) => {
     : 'bg-orange-500 text-white shadow-orange-500/30';
 };
 
+// Helper untuk menyorot (highlight) kata kunci pencarian di dalam teks
+const highlightText = (text, query) => {
+  if (text === null || text === undefined || text === '') return '-';
+  const str = String(text);
+  const trimmed = (query || '').trim();
+  if (!trimmed) return str;
+  const escaped = trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const parts = str.split(new RegExp(`(${escaped})`, 'gi'));
+  return parts.map((part, idx) =>
+    part.toLowerCase() === trimmed.toLowerCase() ? (
+      <mark
+        key={idx}
+        className="bg-amber-300/90 dark:bg-amber-500/40 text-slate-950 dark:text-amber-100 rounded px-0.5 font-extrabold"
+      >
+        {part}
+      </mark>
+    ) : (
+      part
+    )
+  );
+};
+
+const DEFAULT_BG_SETTINGS = {
+  image: '',
+  blur: 0,
+  brightness: 100,
+  overlay: 40,
+  size: 'cover',
+  position: 'center'
+};
+
+const DEFAULT_LOGO_SETTINGS = {
+  image: '',
+  headerSize: 32,
+  heroSize: 84,
+  scale: 100,
+  offsetX: 0,
+  offsetY: 0,
+  radius: 12,
+  showInHero: true
+};
+
+const compressLogoPng = (file) => new Promise((resolve, reject) => {
+  const isPng = file.type === 'image/png' || file.name.toLowerCase().endsWith('.png');
+  if (!isPng) {
+    reject(new Error('INVALID_FORMAT'));
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const maxDim = 512;
+      let { width, height } = img;
+      if (width > maxDim || height > maxDim) {
+        if (width > height) {
+          height = Math.round((height * maxDim) / width);
+          width = maxDim;
+        } else {
+          width = Math.round((width * maxDim) / height);
+          height = maxDim;
+        }
+      }
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, width, height);
+      ctx.drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.onerror = reject;
+    img.src = event.target.result;
+  };
+  reader.onerror = reject;
+  reader.readAsDataURL(file);
+});
+
+const compressBackgroundImage = (file) => new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const maxDim = 1600;
+      let { width, height } = img;
+      if (width > maxDim || height > maxDim) {
+        if (width > height) {
+          height = Math.round((height * maxDim) / width);
+          width = maxDim;
+        } else {
+          width = Math.round((width * maxDim) / height);
+          height = maxDim;
+        }
+      }
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL('image/jpeg', 0.72));
+    };
+    img.onerror = reject;
+    img.src = event.target.result;
+  };
+  reader.onerror = reject;
+  reader.readAsDataURL(file);
+});
+
 // ==========================================
 // KOMPONEN UTAMA
 // ==========================================
 export default function App() {
-  const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('darkMode') !== 'false');
-  const [isMobileView, setIsMobileView] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [toast, setToast] = useState(null);
   
@@ -118,6 +241,22 @@ export default function App() {
   const [startAgendaKeluar, setStartAgendaKeluar] = useState(1);
   const [agendaModeMasuk, setAgendaModeMasuk] = useState('auto');
   const [agendaModeKeluar, setAgendaModeKeluar] = useState('auto');
+  const [bgSettings, setBgSettings] = useState(() => {
+    try {
+      const saved = localStorage.getItem('laskarBgSettings');
+      return saved ? { ...DEFAULT_BG_SETTINGS, ...JSON.parse(saved) } : DEFAULT_BG_SETTINGS;
+    } catch {
+      return DEFAULT_BG_SETTINGS;
+    }
+  });
+  const [logoSettings, setLogoSettings] = useState(() => {
+    try {
+      const saved = localStorage.getItem('laskarLogoSettings');
+      return saved ? { ...DEFAULT_LOGO_SETTINGS, ...JSON.parse(saved) } : DEFAULT_LOGO_SETTINGS;
+    } catch {
+      return DEFAULT_LOGO_SETTINGS;
+    }
+  });
   
   const [showSettings, setShowSettings] = useState(false);
   const [showSettingsPassword, setShowSettingsPassword] = useState(false);
@@ -131,10 +270,52 @@ export default function App() {
   const [selectedItemsForAction, setSelectedItemsForAction] = useState([]);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const lenisRef = useRef(null);
+  const searchInputRef = useRef(null);
+
+  const [isLoadingDocs, setIsLoadingDocs] = useState(Boolean(db));
+  const [viewMode, setViewMode] = useState(() => localStorage.getItem('sigapViewMode') || 'grid');
+  const [filterType, setFilterType] = useState('Semua');
+  const [filterYear, setFilterYear] = useState('Semua');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [copiedId, setCopiedId] = useState(null);
+  const [isTrashView, setIsTrashView] = useState(false);
+
+  // State Indikator Koneksi Online/Offline
+  const [isOnline, setIsOnline] = useState(() => (typeof navigator !== 'undefined' ? navigator.onLine : true));
+  // State Autocomplete Alamat Pengirim/Penerima
+  const [showAlamatSuggestions, setShowAlamatSuggestions] = useState(false);
+  // State Proteksi Unsaved Changes pada Modal Form
+  const [initialFormSnapshot, setInitialFormSnapshot] = useState(null);
+
+  // Pisahkan arsip aktif dan arsip di Sampah (Recycle Bin) dari database
+  const activeDocuments = useMemo(
+    () => documents.filter(d => !d.isDeleted),
+    [documents]
+  );
+
+  const trashedDocuments = useMemo(
+    () => documents
+      .filter(d => d.isDeleted === true)
+      .sort((a, b) => new Date(b.deletedAt || 0) - new Date(a.deletedAt || 0)),
+    [documents]
+  );
+
+  // Daftar tahun unik dari arsip aktif untuk Filter Cepat Berdasarkan Tahun
+  const availableYears = useMemo(() => {
+    const years = new Set();
+    const targetList = isTrashView ? trashedDocuments : activeDocuments;
+    targetList.forEach(d => {
+      if (d.tanggal && /^\d{4}/.test(d.tanggal)) {
+        years.add(d.tanggal.substring(0, 4));
+      }
+    });
+    return Array.from(years).sort((a, b) => Number(b) - Number(a));
+  }, [activeDocuments, trashedDocuments, isTrashView]);
 
   // Mencari nomor urut berikutnya berdasarkan database terbaru (mode Otomatis atau Kustom)
   const getNextNomorUrut = (jenisSuratType, currentDocs, modeOverride, customStartOverride) => {
-    const filtered = currentDocs.filter(d => d.jenisSurat === jenisSuratType);
+    const filtered = currentDocs.filter(d => !d.isDeleted && d.jenisSurat === jenisSuratType);
     const mode = modeOverride ?? (jenisSuratType === 'Surat Masuk' ? agendaModeMasuk : agendaModeKeluar);
     const customStart = customStartOverride ?? (jenisSuratType === 'Surat Masuk' ? startAgendaMasuk : startAgendaKeluar);
 
@@ -166,7 +347,9 @@ export default function App() {
       startAgendaMasuk,
       startAgendaKeluar,
       agendaModeMasuk,
-      agendaModeKeluar
+      agendaModeKeluar,
+      bgSettings: { ...DEFAULT_BG_SETTINGS, ...bgSettings },
+      logoSettings: { ...DEFAULT_LOGO_SETTINGS, ...logoSettings }
     };
 
     if (db && fbUser) {
@@ -189,7 +372,9 @@ export default function App() {
             startAgendaMasuk: Number(data.startAgendaMasuk) || 1,
             startAgendaKeluar: Number(data.startAgendaKeluar) || 1,
             agendaModeMasuk: data.agendaModeMasuk || 'auto',
-            agendaModeKeluar: data.agendaModeKeluar || 'auto'
+            agendaModeKeluar: data.agendaModeKeluar || 'auto',
+            bgSettings: data.bgSettings ? { ...DEFAULT_BG_SETTINGS, ...data.bgSettings } : latestConfig.bgSettings,
+            logoSettings: data.logoSettings ? { ...DEFAULT_LOGO_SETTINGS, ...data.logoSettings } : latestConfig.logoSettings
           };
 
           setAdminCreds({ username: latestConfig.username, password: latestConfig.password });
@@ -199,6 +384,8 @@ export default function App() {
           setStartAgendaKeluar(latestConfig.startAgendaKeluar);
           setAgendaModeMasuk(latestConfig.agendaModeMasuk);
           setAgendaModeKeluar(latestConfig.agendaModeKeluar);
+          setBgSettings(latestConfig.bgSettings);
+          setLogoSettings(latestConfig.logoSettings);
         }
       } catch (err) {
         console.error("Gagal menyinkronkan data pengaturan dari database:", err);
@@ -225,7 +412,7 @@ export default function App() {
     const tzOffset = now.getTimezoneOffset() * 60000;
     const localISODate = (new Date(now - tzOffset)).toISOString().split('T')[0];
     
-    setFormData({
+    const initialData = {
       jenisSurat: 'Surat Keluar',
       formatSurat: 'Naskah Dinas Pengaturan/ Penugasan',
       nomorUrut: getNextNomorUrut('Surat Keluar', documents),
@@ -234,8 +421,121 @@ export default function App() {
       alamatPenerima: '', 
       tanggal: localISODate, 
       perihal: ''
-    });
+    };
+    setFormData(initialData);
+    setInitialFormSnapshot(initialData);
   };
+
+  // Helper untuk memparse field nomor berkas saat edit / duplikat
+  const extractDocFormParts = (docItem) => {
+    let editFormatSurat = docItem.formatSurat || (docItem.modelSurat === 'Surat Keterangan / SK' ? 'Naskah Dinas Penetapan' : 'Naskah Dinas Korespondensi/ Khusus');
+    let depan = docItem.nomorBerkasDepan !== undefined ? docItem.nomorBerkasDepan : (docItem.nomorBerkas || '');
+    let belakang = docItem.nomorBerkasBelakang !== undefined ? docItem.nomorBerkasBelakang : '';
+
+    if (docItem.nomorBerkasDepan === undefined && (docItem.nomorBerkas || '').includes('/')) {
+      const parts = docItem.nomorBerkas.split('/');
+      if (parts.length >= 3) {
+        editFormatSurat = 'Naskah Dinas Penetapan';
+        depan = parts[0];
+        belakang = parts.slice(2).join('/');
+      } else if (parts.length === 2) {
+        depan = parts[0];
+      }
+    }
+    return { editFormatSurat, depan, belakang };
+  };
+
+  // Membuka modal edit dengan snapshot awal untuk proteksi unsaved changes
+  const handleOpenEditDoc = (docItem, e) => {
+    if (e) e.stopPropagation();
+    const { editFormatSurat, depan, belakang } = extractDocFormParts(docItem);
+    const nextData = {
+      ...docItem,
+      formatSurat: editFormatSurat,
+      nomorBerkas: depan,
+      nomorBerkasBelakang: belakang
+    };
+    setEditingDoc(docItem);
+    setFormData(nextData);
+    setInitialFormSnapshot(nextData);
+    setShowDocForm(true);
+  };
+
+  // Fitur Duplikat / Buat Serupa dengan Nomor Agenda terbaru otomatis
+  const handleDuplicateDoc = (docItem, e) => {
+    if (e) e.stopPropagation();
+    const { editFormatSurat, depan, belakang } = extractDocFormParts(docItem);
+    const now = new Date();
+    const tzOffset = now.getTimezoneOffset() * 60000;
+    const localISODate = (new Date(now - tzOffset)).toISOString().split('T')[0];
+    const nextNum = getNextNomorUrut(docItem.jenisSurat, documents);
+
+    const duplicatedData = {
+      jenisSurat: docItem.jenisSurat || 'Surat Keluar',
+      formatSurat: editFormatSurat,
+      nomorUrut: nextNum,
+      nomorBerkas: depan,
+      nomorBerkasBelakang: belakang,
+      alamatPenerima: docItem.alamatPenerima || '',
+      tanggal: localISODate,
+      perihal: docItem.perihal || ''
+    };
+    setSelectedDoc(null);
+    setEditingDoc(null);
+    setFormData(duplicatedData);
+    setInitialFormSnapshot(duplicatedData);
+    setShowDocForm(true);
+    showToast(`Salinan dari #${docItem.nomorUrut} siap diedit (No. Agenda baru: #${nextNum}).`);
+  };
+
+  // Deteksi perubahan yang belum disimpan pada modal form
+  const hasUnsavedChanges = useMemo(() => {
+    if (!showDocForm || !initialFormSnapshot) return false;
+    const keys = ['jenisSurat', 'formatSurat', 'nomorBerkas', 'nomorBerkasBelakang', 'alamatPenerima', 'tanggal', 'perihal'];
+    if (editingDoc && Number(formData.nomorUrut) !== Number(initialFormSnapshot.nomorUrut)) {
+      return true;
+    }
+    return keys.some((k) => (formData[k] || '') !== (initialFormSnapshot[k] || ''));
+  }, [showDocForm, formData, initialFormSnapshot, editingDoc]);
+
+  // Proteksi saat menutup modal form jika masih ada ketikan yang belum disimpan
+  const handleRequestCloseDocForm = () => {
+    if (isSubmitting) return;
+    if (hasUnsavedChanges) {
+      setConfirmDialog({
+        isOpen: true,
+        message: "Anda memiliki perubahan yang belum disimpan pada formulir surat. Yakin ingin menutup dan membuang perubahan?",
+        onConfirm: () => {
+          setShowDocForm(false);
+          setShowAlamatSuggestions(false);
+        }
+      });
+    } else {
+      setShowDocForm(false);
+      setShowAlamatSuggestions(false);
+    }
+  };
+
+  // Daftar saran Autocomplete Pengirim/Penerima dari riwayat database (diurutkan berdasarkan frekuensi)
+  const uniqueAlamatSuggestions = useMemo(() => {
+    const freqMap = new Map();
+    activeDocuments.forEach((d) => {
+      const val = (d.alamatPenerima || '').trim();
+      if (!val) return;
+      freqMap.set(val, (freqMap.get(val) || 0) + 1);
+    });
+    return Array.from(freqMap.entries())
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map(([name]) => name);
+  }, [activeDocuments]);
+
+  const filteredAlamatSuggestions = useMemo(() => {
+    const query = (formData.alamatPenerima || '').trim().toLowerCase();
+    if (!query) return uniqueAlamatSuggestions.slice(0, 6);
+    return uniqueAlamatSuggestions
+      .filter((item) => item.toLowerCase().includes(query) && item.toLowerCase() !== query)
+      .slice(0, 6);
+  }, [uniqueAlamatSuggestions, formData.alamatPenerima]);
 
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, message: '', onConfirm: null });
   const [searchTerm, setSearchTerm] = useState('');
@@ -243,20 +543,59 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
-  const showToast = (message, type = 'success') => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 5000);
+  const showToast = (message, type = 'success', copyText = '') => {
+    setToast({ message, type, copyText });
+    setTimeout(() => setToast(null), copyText ? 7000 : 5000);
   };
 
+  const handleCopyText = async (text, id = 'global', e) => {
+    if (e) e.stopPropagation();
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+    }
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(prev => (prev === id ? null : prev)), 2000);
+    showToast(`Nomor berkas "${text}" disalin!`);
+  };
+
+  const previewNomorBerkas = useMemo(() => {
+    const isTwoPart = formData.formatSurat === 'Naskah Dinas Penetapan' || formData.formatSurat === 'Naskah Dinas Korespondensi/ Khusus';
+    const depan = (formData.nomorBerkas || '').trim();
+    const urut = formData.nomorUrut ?? '';
+    const belakang = (formData.nomorBerkasBelakang || '').trim();
+    if (!depan && !belakang) return '';
+    return isTwoPart ? `${depan}${urut}${belakang}` : `${depan}${urut}`;
+  }, [formData.formatSurat, formData.nomorBerkas, formData.nomorUrut, formData.nomorBerkasBelakang]);
+
   useEffect(() => {
-    if (!auth) return;
+    localStorage.setItem('sigapViewMode', viewMode);
+  }, [viewMode]);
+
+  useEffect(() => {
+    if (!auth) {
+      setIsLoadingDocs(false);
+      return;
+    }
     const initAuth = async () => {
       try {
         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
           try { await signInWithCustomToken(auth, __initial_auth_token); } 
           catch (tokenErr) { await signInAnonymously(auth); }
         } else { await signInAnonymously(auth); }
-      } catch (e) { console.error("Firebase Auth Error:", e); }
+      } catch (e) {
+        console.error("Firebase Auth Error:", e);
+        setIsLoadingDocs(false);
+      }
     };
     initAuth();
     const unsubscribe = onAuthStateChanged(auth, setFbUser);
@@ -264,13 +603,21 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!fbUser || !db) return;
+    if (!db) {
+      setIsLoadingDocs(false);
+      return;
+    }
+    if (!fbUser) return;
     
     const docsRef = collection(db, 'artifacts', appId, 'public', 'data', 'laskar_docs');
     const unsubscribeDocs = onSnapshot(docsRef, (snapshot) => {
       const fetchedDocs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setDocuments(fetchedDocs);
-    }, (error) => console.error("Firestore Docs Error:", error));
+      setIsLoadingDocs(false);
+    }, (error) => {
+      console.error("Firestore Docs Error:", error);
+      setIsLoadingDocs(false);
+    });
 
     const configRef = doc(db, 'artifacts', appId, 'public', 'data', 'laskar_config', 'global_settings');
     const unsubscribeConfig = onSnapshot(configRef, (docSnap) => {
@@ -294,6 +641,20 @@ export default function App() {
         if (data.startAgendaKeluar) setStartAgendaKeluar(Number(data.startAgendaKeluar));
         if (data.agendaModeMasuk) setAgendaModeMasuk(data.agendaModeMasuk);
         if (data.agendaModeKeluar) setAgendaModeKeluar(data.agendaModeKeluar);
+        if (data.bgSettings) {
+          const mergedBg = { ...DEFAULT_BG_SETTINGS, ...data.bgSettings };
+          setBgSettings(mergedBg);
+          try {
+            localStorage.setItem('laskarBgSettings', JSON.stringify(mergedBg));
+          } catch (e) { /* abaikan jika kuota localStorage penuh */ }
+        }
+        if (data.logoSettings) {
+          const mergedLogo = { ...DEFAULT_LOGO_SETTINGS, ...data.logoSettings };
+          setLogoSettings(mergedLogo);
+          try {
+            localStorage.setItem('laskarLogoSettings', JSON.stringify(mergedLogo));
+          } catch (e) { /* abaikan jika kuota localStorage penuh */ }
+        }
       }
     }, (error) => console.error("Firestore Config Error:", error));
 
@@ -304,10 +665,21 @@ export default function App() {
   }, [fbUser]);
 
   useEffect(() => {
-    if (isDarkMode) document.documentElement.classList.add('dark');
-    else document.documentElement.classList.remove('dark');
-    localStorage.setItem('darkMode', isDarkMode);
-  }, [isDarkMode]);
+    document.documentElement.classList.add('dark');
+  }, []);
+
+  // Perbarui favicon tab browser otomatis saat logo PNG aktif
+  useEffect(() => {
+    if (!logoSettings?.image || typeof document === 'undefined') return;
+    let link = document.querySelector("link[rel~='icon']");
+    if (!link) {
+      link = document.createElement('link');
+      link.rel = 'icon';
+      document.head.appendChild(link);
+    }
+    link.type = 'image/png';
+    link.href = logoSettings.image;
+  }, [logoSettings?.image]);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -341,18 +713,76 @@ export default function App() {
     };
   }, [adminUser, autoLogoutMinutes]);
 
+  // Deteksi status koneksi internet (Online/Offline)
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      showToast("Koneksi kembali tersambung (Online).", "success");
+    };
+    const handleOffline = () => {
+      setIsOnline(false);
+      showToast("Koneksi terputus! Anda sedang dalam mode Offline.", "error");
+    };
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, sortBy, itemsPerPage]);
+  }, [searchTerm, sortBy, filterType, filterYear, dateFrom, dateTo, itemsPerPage, isTrashView]);
 
-  // ==========================================
-  // LENIS SMOOTH SCROLL & GSAP SCROLLTRIGGER
-  // ==========================================
+  // Pintasan Keyboard: '/' atau Ctrl+K untuk cari, Esc untuk tutup modal / batal pilih
   useEffect(() => {
-    let lenisInstance;
-    let tickerCallback;
-    let gsapContext;
+    const handleKeyDown = (e) => {
+      const tag = document.activeElement?.tagName?.toLowerCase();
+      const isTyping = tag === 'input' || tag === 'textarea' || tag === 'select';
+
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        return;
+      }
+
+      if (e.key === '/' && !isTyping && !showDocForm && !showSettings && !selectedDoc && !showLoginModal) {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        return;
+      }
+
+      if (e.key === 'Escape') {
+        if (confirmDialog.isOpen) setConfirmDialog({ isOpen: false, message: '', onConfirm: null });
+        else if (showLogoutConfirm) setShowLogoutConfirm(false);
+        else if (showLoginModal) { setShowLoginModal(false); setLoginError(''); }
+        else if (showSettings) setShowSettings(false);
+        else if (showDocForm && !isSubmitting) handleRequestCloseDocForm();
+        else if (selectedDoc) setSelectedDoc(null);
+        else if (isSelectionMode) { setIsSelectionMode(false); setSelectedItemsForAction([]); }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [confirmDialog.isOpen, showLogoutConfirm, showLoginModal, showSettings, showDocForm, isSubmitting, selectedDoc, isSelectionMode, hasUnsavedChanges]);
+
+  // Sinkronkan detail dokumen yang sedang dibuka dengan data terbaru dari database
+  useEffect(() => {
+    if (!selectedDoc) return;
+    const latestDoc = documents.find(d => d.id === selectedDoc.id);
+    if (latestDoc) {
+      setSelectedDoc(latestDoc);
+    }
+  }, [documents]);
+
+  // Inisialisasi GSAP + ScrollTrigger (judul per kata) dan Lenis Smooth Scroll
+  useEffect(() => {
     let isMounted = true;
+    let lenisInstance = null;
+    let gsapContext = null;
+    let tickerCallback = null;
 
     const loadScript = (src) => new Promise((resolve, reject) => {
       const existing = document.querySelector(`script[src="${src}"]`);
@@ -459,18 +889,26 @@ export default function App() {
   }, [formData.jenisSurat, documents, editingDoc, showDocForm, startAgendaMasuk, startAgendaKeluar, agendaModeMasuk, agendaModeKeluar]);
 
   const filteredAndSortedDocs = useMemo(() => {
-    let result = documents.filter(d => {
+    const sourceDocs = isTrashView ? trashedDocuments : activeDocuments;
+    let result = sourceDocs.filter(d => {
       const searchLower = searchTerm.toLowerCase();
-      const isTypeMatch = sortBy === 'Surat Masuk' ? d.jenisSurat === 'Surat Masuk' :
-                          sortBy === 'Surat Keluar' ? d.jenisSurat === 'Surat Keluar' : true;
+      const isTypeMatch = filterType === 'Semua' ? true : d.jenisSurat === filterType;
+      const isYearMatch = filterYear === 'Semua' ? true : Boolean(d.tanggal && d.tanggal.startsWith(filterYear));
+      const isDateFromMatch = dateFrom ? (d.tanggal && d.tanggal >= dateFrom) : true;
+      const isDateToMatch = dateTo ? (d.tanggal && d.tanggal <= dateTo) : true;
       
-      const isSearchMatch = d.nomorBerkas.toLowerCase().includes(searchLower) || 
-                            d.alamatPenerima.toLowerCase().includes(searchLower) ||
+      const isSearchMatch = (d.nomorBerkas || '').toLowerCase().includes(searchLower) || 
+                            (d.alamatPenerima || '').toLowerCase().includes(searchLower) ||
                             (d.perihal && d.perihal.toLowerCase().includes(searchLower)) ||
                             (d.nomorUrut && d.nomorUrut.toString().includes(searchLower));
                             
-      return isTypeMatch && isSearchMatch;
+      return isTypeMatch && isYearMatch && isDateFromMatch && isDateToMatch && isSearchMatch;
     });
+
+    if (isTrashView) {
+      result.sort((a, b) => new Date(b.deletedAt || 0) - new Date(a.deletedAt || 0));
+      return result;
+    }
 
     switch(sortBy) {
       case 'Nomor Urut Terlama':
@@ -481,8 +919,6 @@ export default function App() {
             return new Date(a.tanggal) - new Date(b.tanggal);
          });
         break;
-      case 'Surat Masuk':
-      case 'Surat Keluar':
       case 'Nomor Urut Terbaru':
       default:
          result.sort((a, b) => {
@@ -496,14 +932,13 @@ export default function App() {
 
     result.sort((a, b) => (b.isPinned === true ? 1 : 0) - (a.isPinned === true ? 1 : 0));
     return result;
-  }, [searchTerm, sortBy, documents]);
+  }, [searchTerm, sortBy, filterType, filterYear, dateFrom, dateTo, activeDocuments, trashedDocuments, isTrashView]);
 
   const safeItemsPerPage = isNaN(itemsPerPage) ? 10 : itemsPerPage;
   const totalPages = Math.ceil(filteredAndSortedDocs.length / safeItemsPerPage);
   const safePage = Number(currentPage) || 1;
   const paginatedDocs = filteredAndSortedDocs.slice((safePage - 1) * safeItemsPerPage, safePage * safeItemsPerPage);
 
-  // Animasi Motion Masuk Card saat data / halaman berubah
   useEffect(() => {
     if (window.gsap) {
       const cards = document.querySelectorAll('.sigap-doc-card');
@@ -523,7 +958,7 @@ export default function App() {
         );
       }
     }
-  }, [paginatedDocs.length, currentPage, sortBy, searchTerm, isMobileView]);
+  }, [paginatedDocs.length, currentPage, sortBy, searchTerm]);
 
   const handleLogin = (e) => {
     e.preventDefault();
@@ -547,17 +982,30 @@ export default function App() {
     setShowLogoutConfirm(true);
     setIsSelectionMode(false);
     setSelectedItemsForAction([]);
+    setIsTrashView(false);
   };
 
   const handleTogglePin = async (id, e) => {
     e.stopPropagation();
+    if (adminUser?.role !== 'superadmin') return;
     const docItem = documents.find(d => d.id === id);
     if (!docItem) return;
     
     if (db && fbUser) {
-      await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'laskar_docs', id), { ...docItem, isPinned: !docItem.isPinned }, { merge: true });
+      try {
+        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'laskar_docs', id), {
+          ...docItem,
+          isPinned: !docItem.isPinned,
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
+      } catch (err) {
+        console.error("Gagal memperbarui sematan di database:", err);
+        showToast("Gagal memperbarui data ke server.", "error");
+        return;
+      }
     } else {
-      setDocuments(prev => prev.map(d => d.id === id ? { ...d, isPinned: !d.isPinned } : d));
+      showToast("Sistem offline, gagal menyimpan perubahan ke database.", "error");
+      return;
     }
     showToast(docItem.isPinned ? "Arsip dilepas dari sematan." : "Arsip diprioritaskan!");
   };
@@ -581,10 +1029,12 @@ export default function App() {
 
   const handleBulkDelete = () => {
     if (selectedItemsForAction.length === 0) return;
+    if (adminUser?.role !== 'superadmin') return;
     setConfirmDialog({
       isOpen: true,
-      message: `Anda akan menghapus ${selectedItemsForAction.length} arsip terpilih secara permanen. Lanjutkan?`,
+      message: `Anda akan memindahkan ${selectedItemsForAction.length} arsip terpilih ke Sampah (Recycle Bin). Nomor urut akan langsung tersedia kembali. Lanjutkan?`,
       onConfirm: async () => {
+        const nowIso = new Date().toISOString();
         if (db && fbUser) {
           try {
             const batch = writeBatch(db);
@@ -592,22 +1042,273 @@ export default function App() {
                const docItem = documents.find(d => d.id === id);
                if (docItem) {
                  const lockId = `lock_${docItem.jenisSurat.replace(/\s+/g, '')}_${docItem.nomorUrut}`;
-                 batch.delete(doc(db, 'artifacts', appId, 'public', 'data', 'laskar_docs', id));
+                 const existingHistory = Array.isArray(docItem.history) ? docItem.history : [];
+                 const trashHistoryEntry = {
+                   version: `v${existingHistory.length + 1}.0`,
+                   date: nowIso,
+                   updatedBy: adminUser ? adminUser.username : 'Super Admin',
+                   description: 'Arsip dipindahkan ke Sampah (Recycle Bin).'
+                 };
+                 batch.set(doc(db, 'artifacts', appId, 'public', 'data', 'laskar_docs', id), {
+                   ...docItem,
+                   isDeleted: true,
+                   deletedAt: nowIso,
+                   deletedBy: adminUser ? adminUser.username : 'Super Admin',
+                   isPinned: false,
+                   history: [trashHistoryEntry, ...existingHistory]
+                 }, { merge: true });
                  batch.delete(doc(db, 'artifacts', appId, 'public', 'data', 'laskar_locks', lockId));
                }
             });
             await batch.commit();
-            showToast(`${selectedItemsForAction.length} arsip berhasil dihapus massal!`);
+            showToast(`${selectedItemsForAction.length} arsip dipindahkan ke Sampah!`);
           } catch (e) {
-            console.error("Bulk Delete Error", e);
-            showToast("Sebagian data gagal dihapus.", "error");
+            console.error("Bulk Soft Delete Error", e);
+            showToast("Sebagian data gagal dipindahkan ke Sampah.", "error");
           }
         } else {
-          setDocuments(prev => prev.filter(d => !selectedItemsForAction.includes(d.id)));
-          showToast(`${selectedItemsForAction.length} arsip berhasil dihapus!`);
+          showToast("Sistem offline, gagal memindahkan ke Sampah.", "error");
         }
         setSelectedItemsForAction([]);
         setIsSelectionMode(false);
+      }
+    });
+  };
+
+  // Pulihkan satu arsip dari Sampah (Recycle Bin) dengan validasi gembok di database
+  const handleRestoreDoc = async (docItem, e) => {
+    if (e) e.stopPropagation();
+    if (adminUser?.role !== 'superadmin') return;
+    if (!db || !fbUser) {
+      showToast("Sistem offline, tidak dapat memulihkan arsip.", "error");
+      return;
+    }
+
+    const nowIso = new Date().toISOString();
+    try {
+      await runTransaction(db, async (transaction) => {
+        const lockId = `lock_${docItem.jenisSurat.replace(/\s+/g, '')}_${docItem.nomorUrut}`;
+        const lockRef = doc(db, 'artifacts', appId, 'public', 'data', 'laskar_locks', lockId);
+        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'laskar_docs', docItem.id);
+
+        const [lockSnap, docSnap] = await Promise.all([
+          transaction.get(lockRef),
+          transaction.get(docRef)
+        ]);
+
+        if (!docSnap.exists()) {
+          throw new Error("DOC_NOT_FOUND");
+        }
+
+        if (lockSnap.exists()) {
+          const lockData = lockSnap.data();
+          if (lockData.docId && lockData.docId !== docItem.id) {
+            const linkedDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'laskar_docs', lockData.docId);
+            const linkedDocSnap = await transaction.get(linkedDocRef);
+            if (linkedDocSnap.exists()) {
+              const linkedData = linkedDocSnap.data();
+              if (!linkedData.isDeleted && Number(linkedData.nomorUrut) === Number(docItem.nomorUrut) && linkedData.jenisSurat === docItem.jenisSurat) {
+                throw new Error("NUM_TAKEN");
+              }
+            }
+          }
+        }
+
+        const currentData = docSnap.data();
+        const existingHistory = Array.isArray(currentData.history) ? currentData.history : [];
+        const restoreHistoryEntry = {
+          version: `v${existingHistory.length + 1}.0`,
+          date: nowIso,
+          updatedBy: adminUser ? adminUser.username : 'Super Admin',
+          description: 'Arsip dipulihkan dari Sampah (Recycle Bin).'
+        };
+
+        transaction.set(lockRef, { docId: docItem.id, timestamp: nowIso });
+        transaction.set(docRef, {
+          ...currentData,
+          isDeleted: false,
+          deletedAt: null,
+          deletedBy: null,
+          updatedAt: nowIso,
+          updatedBy: adminUser ? adminUser.username : 'Super Admin',
+          history: [restoreHistoryEntry, ...existingHistory]
+        }, { merge: true });
+      });
+
+      showToast(`Arsip #${docItem.nomorUrut} berhasil dipulihkan ke Arsip Aktif!`);
+    } catch (err) {
+      console.error("Restore failed:", err);
+      if (err.message === "NUM_TAKEN") {
+        showToast(`Gagal memulihkan: Nomor Agenda #${docItem.nomorUrut} (${docItem.jenisSurat}) sudah dipakai arsip aktif lain!`, "error");
+      } else if (err.message === "DOC_NOT_FOUND") {
+        showToast("Arsip tidak ditemukan di database.", "error");
+      } else {
+        showToast("Terjadi kesalahan saat memulihkan arsip.", "error");
+      }
+    }
+  };
+
+  // Pulihkan banyak arsip sekaligus dari Sampah
+  const handleBulkRestore = async () => {
+    if (selectedItemsForAction.length === 0 || adminUser?.role !== 'superadmin') return;
+    if (!db || !fbUser) {
+      showToast("Sistem offline, tidak dapat memulihkan arsip.", "error");
+      return;
+    }
+
+    let restoredCount = 0;
+    let conflictNumbers = [];
+    const nowIso = new Date().toISOString();
+
+    for (const id of selectedItemsForAction) {
+      const docItem = trashedDocuments.find(d => d.id === id);
+      if (!docItem) continue;
+      try {
+        await runTransaction(db, async (transaction) => {
+          const lockId = `lock_${docItem.jenisSurat.replace(/\s+/g, '')}_${docItem.nomorUrut}`;
+          const lockRef = doc(db, 'artifacts', appId, 'public', 'data', 'laskar_locks', lockId);
+          const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'laskar_docs', docItem.id);
+
+          const [lockSnap, docSnap] = await Promise.all([
+            transaction.get(lockRef),
+            transaction.get(docRef)
+          ]);
+
+          if (!docSnap.exists()) return;
+
+          if (lockSnap.exists()) {
+            const lockData = lockSnap.data();
+            if (lockData.docId && lockData.docId !== docItem.id) {
+              const linkedDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'laskar_docs', lockData.docId);
+              const linkedDocSnap = await transaction.get(linkedDocRef);
+              if (linkedDocSnap.exists()) {
+                const linkedData = linkedDocSnap.data();
+                if (!linkedData.isDeleted && Number(linkedData.nomorUrut) === Number(docItem.nomorUrut) && linkedData.jenisSurat === docItem.jenisSurat) {
+                  throw new Error("NUM_TAKEN");
+                }
+              }
+            }
+          }
+
+          const currentData = docSnap.data();
+          const existingHistory = Array.isArray(currentData.history) ? currentData.history : [];
+          const restoreHistoryEntry = {
+            version: `v${existingHistory.length + 1}.0`,
+            date: nowIso,
+            updatedBy: adminUser ? adminUser.username : 'Super Admin',
+            description: 'Arsip dipulihkan massal dari Sampah.'
+          };
+
+          transaction.set(lockRef, { docId: docItem.id, timestamp: nowIso });
+          transaction.set(docRef, {
+            ...currentData,
+            isDeleted: false,
+            deletedAt: null,
+            deletedBy: null,
+            updatedAt: nowIso,
+            updatedBy: adminUser ? adminUser.username : 'Super Admin',
+            history: [restoreHistoryEntry, ...existingHistory]
+          }, { merge: true });
+        });
+        restoredCount++;
+      } catch (err) {
+        if (err.message === "NUM_TAKEN") {
+          conflictNumbers.push(`#${docItem.nomorUrut}`);
+        }
+      }
+    }
+
+    setSelectedItemsForAction([]);
+    setIsSelectionMode(false);
+
+    if (restoredCount > 0 && conflictNumbers.length === 0) {
+      showToast(`${restoredCount} arsip berhasil dipulihkan!`);
+    } else if (restoredCount > 0 && conflictNumbers.length > 0) {
+      showToast(`${restoredCount} arsip dipulihkan. Nomor ${conflictNumbers.join(', ')} dilewati karena sudah dipakai.`, "error");
+    } else if (conflictNumbers.length > 0) {
+      showToast(`Gagal memulihkan: Nomor ${conflictNumbers.join(', ')} sudah dipakai arsip aktif lain.`, "error");
+    }
+  };
+
+  // Hapus permanen satu arsip dari Sampah
+  const handlePermanentDeleteDoc = (docItem, e) => {
+    if (e) e.stopPropagation();
+    if (adminUser?.role !== 'superadmin') return;
+    setConfirmDialog({
+      isOpen: true,
+      message: `Hapus arsip #${docItem.nomorUrut} secara PERMANEN dari database? Tindakan ini tidak dapat dibatalkan.`,
+      onConfirm: async () => {
+        if (db && fbUser) {
+          try {
+            await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'laskar_docs', docItem.id));
+            showToast(`Arsip #${docItem.nomorUrut} dihapus permanen dari database!`);
+          } catch (err) {
+            console.error("Permanent Delete Error:", err);
+            showToast("Gagal menghapus arsip secara permanen.", "error");
+          }
+        } else {
+          showToast("Sistem offline, gagal menghapus permanen.", "error");
+        }
+      }
+    });
+  };
+
+  // Hapus permanen massal dari Sampah
+  const handleBulkPermanentDelete = () => {
+    if (selectedItemsForAction.length === 0 || adminUser?.role !== 'superadmin') return;
+    setConfirmDialog({
+      isOpen: true,
+      message: `Hapus ${selectedItemsForAction.length} arsip terpilih secara PERMANEN dari database? Tindakan ini tidak dapat dibatalkan.`,
+      onConfirm: async () => {
+        if (db && fbUser) {
+          try {
+            const batch = writeBatch(db);
+            selectedItemsForAction.forEach((id) => {
+              batch.delete(doc(db, 'artifacts', appId, 'public', 'data', 'laskar_docs', id));
+            });
+            await batch.commit();
+            showToast(`${selectedItemsForAction.length} arsip dihapus permanen!`);
+          } catch (err) {
+            console.error("Bulk Permanent Delete Error:", err);
+            showToast("Gagal menghapus permanen sebagian arsip.", "error");
+          }
+        } else {
+          showToast("Sistem offline, gagal menghapus permanen.", "error");
+        }
+        setSelectedItemsForAction([]);
+        setIsSelectionMode(false);
+      }
+    });
+  };
+
+  // Kosongkan seluruh isi Sampah (Recycle Bin)
+  const handleEmptyTrash = () => {
+    if (trashedDocuments.length === 0 || adminUser?.role !== 'superadmin') return;
+    setConfirmDialog({
+      isOpen: true,
+      message: `Kosongkan seluruh Sampah (${trashedDocuments.length} arsip) secara PERMANEN dari database? Tindakan ini tidak dapat dibatalkan.`,
+      onConfirm: async () => {
+        if (db && fbUser) {
+          try {
+            const chunkSize = 400;
+            for (let i = 0; i < trashedDocuments.length; i += chunkSize) {
+              const chunk = trashedDocuments.slice(i, i + chunkSize);
+              const batch = writeBatch(db);
+              chunk.forEach((item) => {
+                batch.delete(doc(db, 'artifacts', appId, 'public', 'data', 'laskar_docs', item.id));
+              });
+              await batch.commit();
+            }
+            setSelectedItemsForAction([]);
+            setIsSelectionMode(false);
+            showToast("Seluruh isi Sampah berhasil dikosongkan permanen!");
+          } catch (err) {
+            console.error("Empty Trash Error:", err);
+            showToast("Gagal mengosongkan Sampah.", "error");
+          }
+        } else {
+          showToast("Sistem offline, gagal mengosongkan Sampah.", "error");
+        }
       }
     });
   };
@@ -622,6 +1323,16 @@ export default function App() {
 
     try {
       if (editingDoc) {
+        if (adminUser?.role !== 'superadmin') {
+          showToast("Hanya Super Admin yang memiliki izin untuk mengedit arsip!", "error");
+          setShowDocForm(false);
+          return;
+        }
+
+        if (!db || !fbUser) {
+          showToast("Sistem offline, perubahan tidak dapat disimpan ke database.", "error");
+          return;
+        }
         
         let formattedNomorBerkas = '';
         if (isTwoPart) {
@@ -637,33 +1348,48 @@ export default function App() {
             nomorBerkas: formattedNomorBerkas 
         };
 
+        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'laskar_docs', editingDoc.id);
+        const latestSnap = await getDoc(docRef);
+        const baseDoc = latestSnap.exists() ? { id: latestSnap.id, ...latestSnap.data() } : editingDoc;
+        const existingHistory = Array.isArray(baseDoc.history) ? baseDoc.history : [];
+
+        // Catat rincian kolom yang berubah saat pengeditan
+        const changedFields = [];
+        if (baseDoc.jenisSurat !== finalDataToSave.jenisSurat) changedFields.push(`Jenis Surat (${baseDoc.jenisSurat || '-'} → ${finalDataToSave.jenisSurat})`);
+        if (Number(baseDoc.nomorUrut) !== Number(finalDataToSave.nomorUrut)) changedFields.push(`No. Agenda (#${baseDoc.nomorUrut} → #${finalDataToSave.nomorUrut})`);
+        if ((baseDoc.nomorBerkas || '') !== (finalDataToSave.nomorBerkas || '')) changedFields.push(`No. Berkas`);
+        if ((baseDoc.alamatPenerima || '') !== (finalDataToSave.alamatPenerima || '')) changedFields.push(finalDataToSave.jenisSurat === 'Surat Masuk' ? 'Alamat Pengirim' : 'Alamat Penerima');
+        if ((baseDoc.tanggal || '') !== (finalDataToSave.tanggal || '')) changedFields.push('Tanggal');
+        if ((baseDoc.perihal || '') !== (finalDataToSave.perihal || '')) changedFields.push('Perihal');
+
+        const nowIso = new Date().toISOString();
         const newHistoryEntry = {
-          version: `v${(editingDoc.history?.length || 0) + 1}.0`,
-          date: new Date().toISOString(),
-          updatedBy: adminUser ? adminUser.username : 'Sistem',
-          description: `Data arsip diperbarui.`
+          version: `v${existingHistory.length + 1}.0`,
+          date: nowIso,
+          updatedBy: adminUser ? adminUser.username : 'Super Admin',
+          description: changedFields.length > 0
+            ? `Data arsip diperbarui (${changedFields.join(', ')}).`
+            : `Data arsip diperbarui.`
         };
 
         const updatedDoc = {
-          ...editingDoc, ...finalDataToSave,
-          updatedBy: adminUser ? adminUser.username : 'Petugas',
-          history: [newHistoryEntry, ...(editingDoc.history || [])]
+          ...baseDoc,
+          ...finalDataToSave,
+          updatedBy: adminUser ? adminUser.username : 'Super Admin',
+          updatedAt: nowIso,
+          history: [newHistoryEntry, ...existingHistory]
         };
 
-        if (db && fbUser) {
-          const batch = writeBatch(db);
-          batch.set(doc(db, 'artifacts', appId, 'public', 'data', 'laskar_docs', updatedDoc.id), updatedDoc);
-          if (editingDoc.jenisSurat !== updatedDoc.jenisSurat || Number(editingDoc.nomorUrut) !== Number(updatedDoc.nomorUrut)) {
-              const oldLockId = `lock_${editingDoc.jenisSurat.replace(/\s+/g, '')}_${editingDoc.nomorUrut}`;
-              const newLockId = `lock_${updatedDoc.jenisSurat.replace(/\s+/g, '')}_${updatedDoc.nomorUrut}`;
-              batch.delete(doc(db, 'artifacts', appId, 'public', 'data', 'laskar_locks', oldLockId));
-              batch.set(doc(db, 'artifacts', appId, 'public', 'data', 'laskar_locks', newLockId), { docId: updatedDoc.id, timestamp: new Date().toISOString() });
-          }
-          await batch.commit();
-        } else {
-          setDocuments(documents.map(d => d.id === editingDoc.id ? updatedDoc : d));
+        const batch = writeBatch(db);
+        batch.set(docRef, updatedDoc);
+        if (baseDoc.jenisSurat !== updatedDoc.jenisSurat || Number(baseDoc.nomorUrut) !== Number(updatedDoc.nomorUrut)) {
+            const oldLockId = `lock_${baseDoc.jenisSurat.replace(/\s+/g, '')}_${baseDoc.nomorUrut}`;
+            const newLockId = `lock_${updatedDoc.jenisSurat.replace(/\s+/g, '')}_${updatedDoc.nomorUrut}`;
+            batch.delete(doc(db, 'artifacts', appId, 'public', 'data', 'laskar_locks', oldLockId));
+            batch.set(doc(db, 'artifacts', appId, 'public', 'data', 'laskar_locks', newLockId), { docId: updatedDoc.id, timestamp: nowIso });
         }
-        showToast("Data Arsip berhasil diperbarui!");
+        await batch.commit();
+        showToast("Data Arsip berhasil diperbarui ke Database!");
         setShowDocForm(false);
         
       } else {
@@ -684,6 +1410,7 @@ export default function App() {
           let attempt = 0;
           let currentTarget = isSuperAdminCustomOverride ? Number(formData.nomorUrut) : Number(defaultExpectedNumber);
           let numberWasChanged = false; 
+          let savedNomorBerkas = '';
 
           while (!success && attempt < 30) {
               try {
@@ -699,8 +1426,8 @@ export default function App() {
                               const linkedDocSnap = await transaction.get(linkedDocRef);
                               if (linkedDocSnap.exists()) {
                                   const linkedData = linkedDocSnap.data();
-                                  // Hanya dianggap terpakai jika dokumen tertaut benar-benar masih memegang nomor & jenis surat ini
-                                  if (Number(linkedData.nomorUrut) === Number(currentTarget) && linkedData.jenisSurat === formData.jenisSurat) {
+                                  // Hanya dianggap terpakai jika dokumen tertaut masih aktif (tidak di Sampah) dan memegang nomor & jenis surat ini
+                                  if (!linkedData.isDeleted && Number(linkedData.nomorUrut) === Number(currentTarget) && linkedData.jenisSurat === formData.jenisSurat) {
                                       throw new Error("NUM_TAKEN");
                                   }
                               }
@@ -714,6 +1441,7 @@ export default function App() {
                       } else {
                           formattedNomorBerkas = `${formData.nomorBerkas.trim()}${currentTarget}`;
                       }
+                      savedNomorBerkas = formattedNomorBerkas;
 
                       const newDocData = { 
                         ...formData,
@@ -747,7 +1475,7 @@ export default function App() {
                       numberWasChanged = true; 
                       attempt++;
                       let nextNum = Number(currentTarget) + 1;
-                      while (documents.some(d => d.jenisSurat === formData.jenisSurat && Number(d.nomorUrut) === nextNum)) {
+                      while (documents.some(d => !d.isDeleted && d.jenisSurat === formData.jenisSurat && Number(d.nomorUrut) === nextNum)) {
                           nextNum++;
                       }
                       currentTarget = nextNum;
@@ -759,9 +1487,9 @@ export default function App() {
 
           if (success) {
              if (numberWasChanged) {
-                 showToast(`Nomor telah digunakan perangkat lain! Arsip berhasil dicatat di urutan baru: #${currentTarget}`, "success");
+                 showToast(`Nomor telah digunakan perangkat lain! Dicatat di urutan baru: #${currentTarget}`, "success", savedNomorBerkas);
              } else {
-                 showToast("Arsip Baru berhasil dicatat!");
+                 showToast(`Arsip #${currentTarget} berhasil dicatat!`, "success", savedNomorBerkas);
              }
              setShowDocForm(false);
           } else {
@@ -785,40 +1513,62 @@ export default function App() {
 
   const handleDeleteDoc = (id, e) => {
     e.stopPropagation();
+    if (adminUser?.role !== 'superadmin') return;
     setConfirmDialog({
       isOpen: true,
-      message: "Apakah Anda yakin ingin menghapus data arsip ini secara permanen?",
+      message: "Pindahkan data arsip ini ke Sampah (Recycle Bin)? Anda masih dapat memulihkannya nanti.",
       onConfirm: async () => {
+        const nowIso = new Date().toISOString();
         if (db && fbUser) {
           const docItem = documents.find(d => d.id === id);
           if (docItem) {
-            const batch = writeBatch(db);
-            const lockId = `lock_${docItem.jenisSurat.replace(/\s+/g, '')}_${docItem.nomorUrut}`;
-            batch.delete(doc(db, 'artifacts', appId, 'public', 'data', 'laskar_docs', id));
-            batch.delete(doc(db, 'artifacts', appId, 'public', 'data', 'laskar_locks', lockId));
-            await batch.commit().catch(e => console.error("Gagal menghapus", e));
+            try {
+              const batch = writeBatch(db);
+              const lockId = `lock_${docItem.jenisSurat.replace(/\s+/g, '')}_${docItem.nomorUrut}`;
+              const existingHistory = Array.isArray(docItem.history) ? docItem.history : [];
+              const trashHistoryEntry = {
+                version: `v${existingHistory.length + 1}.0`,
+                date: nowIso,
+                updatedBy: adminUser ? adminUser.username : 'Super Admin',
+                description: 'Arsip dipindahkan ke Sampah (Recycle Bin).'
+              };
+              batch.set(doc(db, 'artifacts', appId, 'public', 'data', 'laskar_docs', id), {
+                ...docItem,
+                isDeleted: true,
+                deletedAt: nowIso,
+                deletedBy: adminUser ? adminUser.username : 'Super Admin',
+                isPinned: false,
+                history: [trashHistoryEntry, ...existingHistory]
+              }, { merge: true });
+              batch.delete(doc(db, 'artifacts', appId, 'public', 'data', 'laskar_locks', lockId));
+              await batch.commit();
+              showToast("Arsip dipindahkan ke Sampah! Nomor urut kini tersedia kembali.");
+            } catch (err) {
+              console.error("Gagal memindahkan ke Sampah:", err);
+              showToast("Gagal memindahkan arsip ke Sampah.", "error");
+            }
           }
         } else {
-          setDocuments(prev => prev.filter(d => d.id !== id));
+          showToast("Sistem offline, gagal memindahkan ke Sampah.", "error");
         }
-        showToast("Data arsip berhasil dihapus!");
       }
     });
   };
 
-  const generateTableHtml = () => {
+  const generateTableHtml = (docsList = filteredAndSortedDocs) => {
     let html = '<table border="1" style="border-collapse: collapse; width: 100%; font-family: sans-serif; font-size: 12px;"><thead><tr style="background-color: #f0f0f0;">';
-    html += '<th style="padding: 8px;">No. Urut</th><th style="padding: 8px;">Jenis Surat</th><th style="padding: 8px;">Nomor Berkas</th><th style="padding: 8px;">Alamat Penerima</th><th style="padding: 8px;">Tanggal</th><th style="padding: 8px;">Perihal</th>';
+    html += '<th style="padding: 8px;">No. Urut</th><th style="padding: 8px;">Jenis Surat</th><th style="padding: 8px;">Nomor Berkas</th><th style="padding: 8px;">Alamat Pengirim/Penerima</th><th style="padding: 8px;">Tanggal</th><th style="padding: 8px;">Perihal</th>';
     html += '</tr></thead><tbody>';
-    filteredAndSortedDocs.forEach(d => {
+    docsList.forEach(d => {
       html += `<tr><td style="padding: 8px;">${d.nomorUrut}</td><td style="padding: 8px;">${d.jenisSurat}</td><td style="padding: 8px;">${d.nomorBerkas}</td><td style="padding: 8px;">${d.alamatPenerima}</td><td style="padding: 8px;">${d.tanggal}</td><td style="padding: 8px;">${d.perihal || '-'}</td></tr>`;
     });
     html += '</tbody></table>';
     return html;
   };
 
-  const handleExportExcel = () => {
-    const html = generateTableHtml();
+  const handleExportExcel = (customDocs) => {
+    const targetDocs = Array.isArray(customDocs) ? customDocs : filteredAndSortedDocs;
+    const html = generateTableHtml(targetDocs);
     const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -826,10 +1576,11 @@ export default function App() {
     link.download = `Laporan_SIGAP_${new Date().toISOString().split('T')[0]}.xls`;
     link.click();
     URL.revokeObjectURL(url);
-    showToast("Laporan Excel berhasil diunduh!");
+    showToast(`Laporan Excel (${targetDocs.length} arsip) berhasil diunduh!`);
   };
 
-  const handleExportWord = () => {
+  const handleExportWord = (customDocs) => {
+    const targetDocs = Array.isArray(customDocs) ? customDocs : filteredAndSortedDocs;
     const html = `
       <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
       <head><meta charset='utf-8'><title>Laporan SIGAP</title></head>
@@ -837,7 +1588,7 @@ export default function App() {
         <h2 style="text-align: center; font-family: sans-serif;">LAPORAN ARSIP SURAT LAPAS KALABAHI</h2>
         <p style="text-align: center; font-family: sans-serif;">Dicetak pada: ${new Date().toLocaleString('id-ID')}</p>
         <br/>
-        ${generateTableHtml()}
+        ${generateTableHtml(targetDocs)}
       </body>
       </html>
     `;
@@ -848,10 +1599,11 @@ export default function App() {
     link.download = `Laporan_SIGAP_${new Date().toISOString().split('T')[0]}.doc`;
     link.click();
     URL.revokeObjectURL(url);
-    showToast("Laporan Word berhasil diunduh!");
+    showToast(`Laporan Word (${targetDocs.length} arsip) berhasil diunduh!`);
   };
 
-  const handlePrintReport = () => {
+  const handlePrintReport = (customDocs) => {
+    const targetDocs = Array.isArray(customDocs) ? customDocs : filteredAndSortedDocs;
     const printWindow = window.open('', '', 'width=900,height=650');
     printWindow.document.write(`
       <html>
@@ -872,8 +1624,8 @@ export default function App() {
         </head>
         <body>
           <h2>LAPORAN ARSIP SURAT MASUK DAN KELUAR</h2>
-          <p>SIGAP - Lapas Kelas IIB Kalabahi<br/><span style="font-size: 11px;">Dicetak pada: ${new Date().toLocaleString('id-ID')}</span></p>
-          ${generateTableHtml()}
+          <p>SIGAP - Lapas Kelas IIB Kalabahi<br/><span style="font-size: 11px;">Dicetak pada: ${new Date().toLocaleString('id-ID')} • Total: ${targetDocs.length} Arsip</span></p>
+          ${generateTableHtml(targetDocs)}
         </body>
       </html>
     `);
@@ -885,8 +1637,79 @@ export default function App() {
     }, 300);
   };
 
+  const selectedDocsList = useMemo(
+    () => documents.filter(d => selectedItemsForAction.includes(d.id)),
+    [documents, selectedItemsForAction]
+  );
+
+  const hasActiveFilters = filterType !== 'Semua' || filterYear !== 'Semua' || Boolean(dateFrom) || Boolean(dateTo) || Boolean(searchTerm);
+
+  // Helper Preset Filter Waktu 1-Klik
+  const getDatePresetRange = (preset) => {
+    const now = new Date();
+    const tzOffset = now.getTimezoneOffset() * 60000;
+    const toLocalISO = (d) => new Date(d.getTime() - tzOffset).toISOString().split('T')[0];
+    const todayStr = toLocalISO(now);
+
+    if (preset === 'today') {
+      return { from: todayStr, to: todayStr };
+    }
+    if (preset === '7days') {
+      const past = new Date(now);
+      past.setDate(now.getDate() - 6);
+      return { from: toLocalISO(past), to: todayStr };
+    }
+    if (preset === 'thisMonth') {
+      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+      return { from: toLocalISO(firstDay), to: todayStr };
+    }
+    return { from: '', to: '' };
+  };
+
+  const activeDatePreset = useMemo(() => {
+    if (!dateFrom || !dateTo) return null;
+    for (const key of ['today', '7days', 'thisMonth']) {
+      const range = getDatePresetRange(key);
+      if (dateFrom === range.from && dateTo === range.to) return key;
+    }
+    return null;
+  }, [dateFrom, dateTo]);
+
+  const handleApplyDatePreset = (preset) => {
+    if (activeDatePreset === preset) {
+      setDateFrom('');
+      setDateTo('');
+      return;
+    }
+    const range = getDatePresetRange(preset);
+    setFilterYear('Semua');
+    setDateFrom(range.from);
+    setDateTo(range.to);
+  };
+
   return (
-    <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-950 dark:text-slate-100 transition-colors duration-500 font-sans selection:bg-emerald-800/30 overflow-x-hidden relative flex justify-center pb-24">
+    <div className={`min-h-screen ${bgSettings.image ? 'bg-transparent has-custom-bg' : 'bg-slate-100 dark:bg-slate-950'} text-slate-950 dark:text-slate-100 transition-colors duration-500 font-sans selection:bg-emerald-800/30 overflow-x-hidden relative flex justify-center pb-24`}>
+      {/* CUSTOM BACKGROUND PHOTO LAYER */}
+      {bgSettings.image && (
+        <div className="fixed inset-0 -z-20 bg-slate-100 dark:bg-slate-950 pointer-events-none overflow-hidden">
+          <div
+            className="w-full h-full transition-all duration-300"
+            style={{
+              backgroundImage: `url(${bgSettings.image})`,
+              backgroundSize: bgSettings.size || 'cover',
+              backgroundPosition: bgSettings.position || 'center',
+              backgroundRepeat: 'no-repeat',
+              filter: `blur(${bgSettings.blur || 0}px) brightness(${bgSettings.brightness ?? 100}%)`,
+              transform: (bgSettings.blur || 0) > 0 ? 'scale(1.06)' : 'scale(1)'
+            }}
+          />
+          <div
+            className="absolute inset-0 bg-slate-950 transition-opacity duration-300"
+            style={{ opacity: (bgSettings.overlay ?? 40) / 100 }}
+          />
+        </div>
+      )}
+
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@200;400;600;800&display=swap');
         * { font-family: 'Plus Jakarta Sans', sans-serif; }
@@ -904,6 +1727,15 @@ export default function App() {
           background: rgba(15, 23, 42, 0.7); 
           border: 1px solid rgba(16, 185, 129, 0.15); 
           box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.02) inset; 
+        }
+        /* Menjaga kontras teks tetap tajam saat foto background aktif */
+        .has-custom-bg .glass-card {
+          background: rgba(255, 255, 255, 0.93);
+          border-color: rgba(16, 185, 129, 0.28);
+        }
+        .dark .has-custom-bg .glass-card {
+          background: rgba(15, 23, 42, 0.88);
+          border-color: rgba(16, 185, 129, 0.24);
         }
         
         .btn-3d { 
@@ -967,117 +1799,256 @@ export default function App() {
 
       {/* GLOBAL TOAST */}
       {toast && (
-        <div className={`fixed top-6 left-1/2 -translate-x-1/2 z-[300] px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-top-10 fade-in duration-300 backdrop-blur-md border ${toast.type === 'error' ? 'bg-rose-600/90 border-rose-500 text-white' : 'bg-emerald-600/90 border-emerald-500 text-white'}`}>
-          {toast.type === 'error' ? <AlertCircle size={22}/> : <CheckCircle2 size={22}/>}
+        <div className={`fixed top-6 left-1/2 -translate-x-1/2 z-[300] px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-top-10 fade-in duration-300 backdrop-blur-md border max-w-[92vw] ${toast.type === 'error' ? 'bg-rose-600/95 border-rose-500 text-white' : 'bg-emerald-600/95 border-emerald-500 text-white'}`}>
+          {toast.type === 'error' ? <AlertCircle size={22} className="shrink-0"/> : <CheckCircle2 size={22} className="shrink-0"/>}
           <span className="text-xs font-bold uppercase tracking-widest text-white">{toast.message}</span>
+          {toast.copyText && (
+            <button
+              type="button"
+              onClick={(e) => handleCopyText(toast.copyText, 'toast-copy', e)}
+              className="ml-2 px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 shrink-0 transition-colors"
+            >
+              <Copy size={13}/> Salin Nomor
+            </button>
+          )}
         </div>
       )}
 
       {/* FLOAT BULK ACTION BAR UNTUK SUPERADMIN */}
       {isSelectionMode && adminUser?.role === 'superadmin' && (
-        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-4 bg-slate-900 text-white px-6 py-4 rounded-full shadow-2xl border border-slate-700 animate-in slide-in-from-bottom-10 fade-in duration-300">
-           <span className="text-sm font-black whitespace-nowrap"><span className="text-orange-500">{selectedItemsForAction.length}</span> Arsip Terpilih</span>
-           <div className="w-px h-6 bg-slate-700"></div>
-           <button onClick={() => { setIsSelectionMode(false); setSelectedItemsForAction([]); }} className="text-xs font-bold text-slate-400 hover:text-white transition-colors">Batal</button>
-           <button onClick={handleBulkDelete} disabled={selectedItemsForAction.length === 0} className="px-5 py-2.5 bg-rose-600 hover:bg-rose-500 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-full text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-all">
-             <Trash2 size={14}/> Hapus Massal
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] flex flex-wrap items-center justify-center gap-2 sm:gap-3 bg-slate-900/95 backdrop-blur-md text-white px-5 py-3.5 rounded-3xl sm:rounded-full shadow-2xl border border-slate-700 animate-in slide-in-from-bottom-10 fade-in duration-300 max-w-[95vw]">
+           <span className="text-xs sm:text-sm font-black whitespace-nowrap"><span className="text-orange-500">{selectedItemsForAction.length}</span> Terpilih</span>
+           <div className="w-px h-5 bg-slate-700 hidden sm:block"></div>
+           <button
+             type="button"
+             onClick={() => {
+               const pageIds = paginatedDocs.map(d => d.id);
+               const allSelected = pageIds.length > 0 && pageIds.every(id => selectedItemsForAction.includes(id));
+               if (allSelected) {
+                 setSelectedItemsForAction(prev => prev.filter(id => !pageIds.includes(id)));
+               } else {
+                 setSelectedItemsForAction(prev => Array.from(new Set([...prev, ...pageIds])));
+               }
+             }}
+             className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider transition-colors"
+           >
+             {paginatedDocs.length > 0 && paginatedDocs.every(d => selectedItemsForAction.includes(d.id)) ? 'Batal Hal Ini' : 'Pilih Hal Ini'}
+           </button>
+           {isTrashView ? (
+             <>
+               <button
+                 type="button"
+                 onClick={handleBulkRestore}
+                 disabled={selectedItemsForAction.length === 0}
+                 className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 transition-all"
+               >
+                 <RotateCcw size={13}/> Pulihkan
+               </button>
+               <button
+                 type="button"
+                 onClick={handleBulkPermanentDelete}
+                 disabled={selectedItemsForAction.length === 0}
+                 className="px-4 py-2 bg-rose-600 hover:bg-rose-500 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 transition-all"
+               >
+                 <Trash2 size={13}/> Hapus Permanen
+               </button>
+             </>
+           ) : (
+             <>
+               <button
+                 type="button"
+                 onClick={() => handleExportExcel(selectedDocsList)}
+                 disabled={selectedItemsForAction.length === 0}
+                 className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 transition-all"
+                 title="Ekspor Terpilih ke Excel"
+               >
+                 <Table size={13}/> Excel
+               </button>
+               <button
+                 type="button"
+                 onClick={() => handleExportWord(selectedDocsList)}
+                 disabled={selectedItemsForAction.length === 0}
+                 className="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 transition-all"
+                 title="Ekspor Terpilih ke Word"
+               >
+                 <FileText size={13}/> Word
+               </button>
+               <button
+                 type="button"
+                 onClick={() => handlePrintReport(selectedDocsList)}
+                 disabled={selectedItemsForAction.length === 0}
+                 className="px-3.5 py-2 bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 disabled:text-slate-500 text-white rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 transition-all"
+                 title="Cetak Terpilih"
+               >
+                 <Printer size={13}/> Print
+               </button>
+               <button onClick={handleBulkDelete} disabled={selectedItemsForAction.length === 0} className="px-4 py-2 bg-rose-600 hover:bg-rose-500 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 transition-all">
+                 <Trash2 size={13}/> Ke Sampah
+               </button>
+             </>
+           )}
+           <button onClick={() => { setIsSelectionMode(false); setSelectedItemsForAction([]); }} className="p-1.5 text-slate-400 hover:text-white transition-colors" title="Tutup Mode Pilih">
+             <X size={16}/>
            </button>
         </div>
       )}
 
       {/* HEADER GLOBAL */}
-      <header className={`fixed top-0 left-1/2 -translate-x-1/2 z-50 px-6 py-4 flex justify-between items-center pointer-events-none transition-all duration-500 w-full ${isMobileView ? 'max-w-[480px]' : 'max-w-full'}`}>
-        <div className="glass-card px-5 py-3 rounded-2xl pointer-events-auto flex items-center gap-3 shadow-lg hover:shadow-xl transition-shadow">
-          <div className="flex items-center gap-1">
+      <header className="fixed top-0 left-1/2 -translate-x-1/2 z-50 px-6 py-4 flex justify-between items-center pointer-events-none transition-all duration-500 w-full max-w-full">
+        <div className="glass-card px-3 py-2.5 rounded-2xl pointer-events-auto flex items-center gap-2 shadow-lg hover:shadow-xl transition-shadow">
+          <div className="flex items-center gap-1.5">
             {adminUser?.role === 'superadmin' && (
               <button onClick={handleOpenSettings} className="p-1.5 rounded-xl bg-orange-100 dark:bg-orange-800/40 hover:bg-orange-200 transition-all" title="Pengaturan Sistem">
                 <Settings className="text-orange-600 dark:text-orange-500" size={20}/>
               </button>
             )}
-            <button onClick={() => isAdmin ? handleLogout() : setShowLoginModal(true)} className={`p-1.5 rounded-xl transition-all ${isAdmin ? 'bg-rose-100 dark:bg-rose-900/40 hover:bg-rose-200' : 'bg-emerald-100 dark:bg-emerald-800/40 hover:bg-emerald-200'}`} title={isAdmin ? "Keluar Mode Petugas" : "Login Petugas"}>
-              {isAdmin ? <LogOut className="text-rose-600 dark:text-rose-500" size={20}/> : <Shield className="text-emerald-800 dark:text-emerald-400" size={20} />}
+            <button
+              onClick={() => isAdmin ? handleLogout() : setShowLoginModal(true)}
+              className={`rounded-xl transition-all flex items-center justify-center ${
+                isAdmin
+                  ? 'p-1.5 bg-rose-100 dark:bg-rose-900/40 hover:bg-rose-200'
+                  : logoSettings.image
+                    ? 'p-0.5 hover:scale-105'
+                    : 'p-1.5 bg-emerald-100 dark:bg-emerald-800/40 hover:bg-emerald-200'
+              }`}
+              title={isAdmin ? "Keluar Mode Petugas" : "Login Petugas"}
+            >
+              {isAdmin ? (
+                <LogOut className="text-rose-600 dark:text-rose-500" size={20}/>
+              ) : logoSettings.image ? (
+                <div
+                  className="overflow-hidden flex items-center justify-center shrink-0"
+                  style={{
+                    width: `${logoSettings.headerSize ?? 32}px`,
+                    height: `${logoSettings.headerSize ?? 32}px`,
+                    borderRadius: `${logoSettings.radius ?? 12}%`
+                  }}
+                >
+                  <img
+                    src={logoSettings.image}
+                    alt="Logo SIGAP"
+                    className="w-full h-full object-contain pointer-events-none select-none"
+                    style={{
+                      transform: `translate(${logoSettings.offsetX ?? 0}px, ${logoSettings.offsetY ?? 0}px) scale(${(logoSettings.scale ?? 100) / 100})`
+                    }}
+                  />
+                </div>
+              ) : (
+                <Shield className="text-emerald-800 dark:text-emerald-400" size={20} />
+              )}
             </button>
           </div>
-          <span className="font-black tracking-tighter text-[15px] bg-clip-text text-transparent bg-gradient-to-r from-emerald-800 to-orange-500 dark:from-emerald-400 dark:to-orange-400">SIGAP</span>
         </div>
         
         <div className="flex gap-2 pointer-events-auto items-center">
-          <div className={`${isMobileView ? 'hidden' : 'hidden sm:flex'} items-center gap-2 px-4 py-2.5 glass-card rounded-full text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 shadow-sm`}>
+          {/* Indikator Status Koneksi (Online/Offline) */}
+          <div
+            className={`flex items-center gap-1.5 px-3 py-2.5 glass-card rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm border ${
+              isOnline && (!db || fbUser)
+                ? 'text-emerald-700 dark:text-emerald-400 border-emerald-300/60 dark:border-emerald-700/50'
+                : 'text-rose-600 dark:text-rose-400 border-rose-300/60 dark:border-rose-700/50'
+            }`}
+            title={isOnline && (!db || fbUser) ? 'Terhubung ke Database Server' : 'Koneksi Terputus / Offline'}
+          >
+            <span className="relative flex h-2 w-2 shrink-0">
+              {isOnline && (!db || fbUser) && (
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              )}
+              <span className={`relative inline-flex rounded-full h-2 w-2 ${isOnline && (!db || fbUser) ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
+            </span>
+            {isOnline && (!db || fbUser) ? <Wifi size={13} /> : <WifiOff size={13} />}
+            <span className="hidden md:inline">{isOnline && (!db || fbUser) ? 'Online' : 'Offline'}</span>
+          </div>
+
+          <div className="hidden sm:flex items-center gap-2 px-4 py-2.5 glass-card rounded-full text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 shadow-sm">
             <Clock size={14} className="text-orange-500" />
             {formatLiveTime(currentTime)}
           </div>
-          
-          <button onClick={() => setIsMobileView(!isMobileView)} className="p-3.5 glass-card rounded-2xl hover:scale-105 hover:shadow-lg transition-all text-slate-600 dark:text-slate-300 border border-transparent hover:border-emerald-300 dark:hover:border-emerald-700" title={isMobileView ? "Beralih ke Mode Desktop" : "Beralih ke Mode Mobile"}>
-            {isMobileView ? <Monitor size={18} className="text-orange-600"/> : <Smartphone size={18} className="text-emerald-600"/>}
-          </button>
-          
-          <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-3.5 glass-card rounded-2xl hover:scale-105 hover:shadow-lg transition-all text-slate-600 dark:text-slate-300 border border-transparent hover:border-emerald-300 dark:hover:border-emerald-700" title={isDarkMode ? "Beralih Mode Terang" : "Beralih Mode Gelap"}>
-            {isDarkMode ? <Sun size={18} className="text-orange-400"/> : <Moon size={18} className="text-emerald-600"/>}
-          </button>
         </div>
       </header>
 
-      <main className={`pt-32 px-6 mx-auto relative z-10 flex flex-col transition-all duration-500 w-full ${isMobileView ? 'max-w-[480px]' : 'max-w-7xl'}`}>
+      <main className="pt-24 px-6 mx-auto relative z-10 flex flex-col transition-all duration-500 w-full max-w-7xl">
         
-        {/* HERO SECTION */}
-        <div className="text-center mb-16 gsap-hero-trigger">
-          <div className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-50 dark:bg-emerald-800/20 text-emerald-800 dark:text-emerald-400 rounded-full text-[10px] font-black uppercase tracking-widest border border-emerald-200/50 dark:border-emerald-700/30 shadow-sm mb-6">
+        {/* HERO SECTION (DIPADATKAN AGAR KONTEN UTAMA LANGSUNG TERLIHAT) */}
+        <div className="text-center mb-8 gsap-hero-trigger">
+          {logoSettings.image && logoSettings.showInHero !== false && (
+            <div className="flex justify-center mb-4">
+              <div
+                className="overflow-hidden flex items-center justify-center"
+                style={{
+                  width: `${logoSettings.heroSize ?? 84}px`,
+                  height: `${logoSettings.heroSize ?? 84}px`,
+                  borderRadius: `${logoSettings.radius ?? 12}%`
+                }}
+              >
+                <img
+                  src={logoSettings.image}
+                  alt="Logo SIGAP"
+                  className="w-full h-full object-contain pointer-events-none select-none"
+                  style={{
+                    transform: `translate(${logoSettings.offsetX ?? 0}px, ${logoSettings.offsetY ?? 0}px) scale(${(logoSettings.scale ?? 100) / 100})`
+                  }}
+                />
+              </div>
+            </div>
+          )}
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-emerald-50 dark:bg-emerald-800/20 text-emerald-800 dark:text-emerald-400 rounded-full text-[10px] font-black uppercase tracking-widest border border-emerald-200/50 dark:border-emerald-700/30 shadow-sm mb-3">
             <div className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></div>
             Layanan Administrasi Pemasyarakatan
           </div>
-          <h1 className={`font-black tracking-tighter leading-[1.1] text-slate-900 dark:text-white mb-4 transition-all duration-500 ${isMobileView ? 'text-4xl' : 'text-5xl md:text-7xl'}`}>
+          <h1 className="font-black tracking-tighter leading-[1.05] text-slate-900 dark:text-white mb-2 transition-all duration-500 text-4xl md:text-5xl">
             <span className="inline-block gsap-word">SIGAP</span>
           </h1>
-          <h2 className={`font-black tracking-widest text-emerald-800 dark:text-emerald-400 mb-6 uppercase transition-all duration-500 ${isMobileView ? 'text-xs' : 'text-sm md:text-lg'}`}>
+          <h2 className="font-black tracking-widest text-emerald-800 dark:text-emerald-400 mb-2 uppercase transition-all duration-500 text-xs md:text-sm">
             {'Sistem Informasi Gabungan Arsip Pemasyarakatan'.split(' ').map((word, i) => (
               <span key={i} className="inline-block gsap-word mr-2">{word}</span>
             ))}
           </h2>
-          <p className={`max-w-2xl mx-auto font-semibold text-slate-600 dark:text-slate-400 leading-relaxed transition-all duration-500 ${isMobileView ? 'text-xs' : 'text-sm md:text-base'} mb-10`}>
-            Sistem pengarsipan dan manajemen persuratan (Surat Masuk & Surat Keluar) untuk efisiensi tata usaha Lapas Kelas IIB Kalabahi.
+          <p className="max-w-2xl mx-auto font-semibold text-slate-600 dark:text-slate-400 leading-relaxed transition-all duration-500 text-xs md:text-sm">
+            Sistem pengarsipan dan manajemen persuratan (Surat Masuk & Surat Keluar) Tata Usaha Lapas Kelas IIB Kalabahi.
           </p>
         </div>
 
         {/* DASHBOARD STATISTIK */}
-        <div className="max-w-5xl mx-auto mb-10 animate-in fade-in zoom-in duration-500 w-full">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="glass-card p-6 md:p-8 rounded-[2.5rem] shadow-xl border border-emerald-500/20 relative overflow-hidden flex items-center gap-6 group hover:shadow-2xl hover:border-emerald-500/40 transition-all">
-              <div className="w-20 h-20 bg-emerald-100 dark:bg-emerald-900/40 rounded-full flex items-center justify-center shrink-0 border border-emerald-200 dark:border-emerald-800/50 group-hover:scale-110 transition-transform">
-                <Inbox size={32} className="text-emerald-700 dark:text-emerald-400" />
+        <div className="max-w-5xl mx-auto mb-6 animate-in fade-in zoom-in duration-500 w-full">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="glass-card p-5 md:p-6 rounded-[2rem] shadow-xl border border-emerald-500/20 relative overflow-hidden flex items-center gap-5 group hover:shadow-2xl hover:border-emerald-500/40 transition-all">
+              <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-900/40 rounded-full flex items-center justify-center shrink-0 border border-emerald-200 dark:border-emerald-800/50 group-hover:scale-110 transition-transform">
+                <Inbox size={26} className="text-emerald-700 dark:text-emerald-400" />
               </div>
               <div className="text-left relative z-10 flex-1">
                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">Total Surat Masuk</p>
                 <div className="flex items-baseline gap-2">
-                  <p className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-br from-emerald-800 to-emerald-400 leading-none">
-                    {documents.filter(d => d.jenisSurat === 'Surat Masuk').length}
+                  <p className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-br from-emerald-800 to-emerald-400 leading-none">
+                    {activeDocuments.filter(d => d.jenisSurat === 'Surat Masuk').length}
                   </p>
                 </div>
               </div>
             </div>
             
-            <div className="glass-card p-6 md:p-8 rounded-[2.5rem] shadow-xl border border-orange-500/20 relative overflow-hidden flex items-center gap-6 group hover:shadow-2xl hover:border-orange-500/40 transition-all">
-              <div className="w-20 h-20 bg-orange-100 dark:bg-orange-900/40 rounded-full flex items-center justify-center shrink-0 border border-orange-200 dark:border-orange-800/50 group-hover:scale-110 transition-transform">
-                <Send size={32} className="text-orange-600 dark:text-orange-400" />
+            <div className="glass-card p-5 md:p-6 rounded-[2rem] shadow-xl border border-orange-500/20 relative overflow-hidden flex items-center gap-5 group hover:shadow-2xl hover:border-orange-500/40 transition-all">
+              <div className="w-16 h-16 bg-orange-100 dark:bg-orange-900/40 rounded-full flex items-center justify-center shrink-0 border border-orange-200 dark:border-orange-800/50 group-hover:scale-110 transition-transform">
+                <Send size={26} className="text-orange-600 dark:text-orange-400" />
               </div>
               <div className="text-left relative z-10 flex-1">
                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">Total Surat Keluar</p>
                 <div className="flex items-baseline gap-2">
-                  <p className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-br from-orange-600 to-orange-400 leading-none">
-                    {documents.filter(d => d.jenisSurat === 'Surat Keluar').length}
+                  <p className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-br from-orange-600 to-orange-400 leading-none">
+                    {activeDocuments.filter(d => d.jenisSurat === 'Surat Keluar').length}
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="glass-card p-6 md:p-8 rounded-[2.5rem] shadow-xl border border-blue-500/20 relative overflow-hidden flex items-center gap-6 group hover:shadow-2xl hover:border-blue-500/40 transition-all">
-              <div className="w-20 h-20 bg-blue-100 dark:bg-blue-900/40 rounded-full flex items-center justify-center shrink-0 border border-blue-200 dark:border-blue-800/50 group-hover:scale-110 transition-transform">
-                <FileText size={32} className="text-blue-600 dark:text-blue-400" />
+            <div className="glass-card p-5 md:p-6 rounded-[2rem] shadow-xl border border-blue-500/20 relative overflow-hidden flex items-center gap-5 group hover:shadow-2xl hover:border-blue-500/40 transition-all">
+              <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/40 rounded-full flex items-center justify-center shrink-0 border border-blue-200 dark:border-blue-800/50 group-hover:scale-110 transition-transform">
+                <FileText size={26} className="text-blue-600 dark:text-blue-400" />
               </div>
               <div className="text-left relative z-10 flex-1">
                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">Total Arsip Keseluruhan</p>
                 <div className="flex items-baseline gap-2">
-                  <p className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-br from-blue-600 to-blue-400 leading-none">
-                    {documents.length}
+                  <p className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-br from-blue-600 to-blue-400 leading-none">
+                    {activeDocuments.length}
                   </p>
                 </div>
               </div>
@@ -1085,85 +2056,460 @@ export default function App() {
           </div>
         </div>
 
-        {/* SEARCH, FILTER & SORTING BAR */}
-        <div className={`max-w-5xl mx-auto glass-card p-4 rounded-[2rem] flex gap-4 shadow-xl border border-white/40 dark:border-slate-700/50 w-full ${isMobileView ? 'flex-col' : 'flex-col md:flex-row'}`}>
-          <div className="relative flex-1">
-            <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-            <input 
-              type="text" 
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Cari No Berkas, Perihal, Alamat..." 
-              className="w-full pl-14 pr-6 py-4 bg-white/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl text-sm font-bold outline-none focus:ring-4 focus:ring-emerald-800/20 focus:border-emerald-800 transition-all text-slate-900 dark:text-white"
-            />
-          </div>
-          
-          <div className={`flex gap-3 ${isMobileView ? 'flex-col' : 'flex-col sm:flex-row flex-wrap'}`}>
-            <div className={`relative shrink-0 ${isMobileView ? 'w-full' : 'sm:w-48'}`}>
-              <ArrowUpDown className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-              <select 
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="w-full pl-10 pr-8 py-4 bg-white/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl text-[11px] font-bold uppercase tracking-wide outline-none appearance-none cursor-pointer transition-all text-slate-900 dark:text-white"
-              >
-                <option value="Nomor Urut Terbaru">Nomor Urut Terbaru</option>
-                <option value="Nomor Urut Terlama">Nomor Urut Terlama</option>
-                <option value="Surat Masuk">Surat Masuk</option>
-                <option value="Surat Keluar">Surat Keluar</option>
-              </select>
-              <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none rotate-90" size={14}/>
+        {/* SEARCH, FILTER, RENTANG TANGGAL, SORTING & VIEW TOGGLE BAR */}
+        <div className="max-w-5xl mx-auto glass-card p-4 rounded-[2rem] flex flex-col gap-3 shadow-xl border border-white/40 dark:border-slate-700/50 w-full">
+          <div className="flex gap-3 flex-col md:flex-row">
+            <div className="relative flex-1">
+              <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <input 
+                ref={searchInputRef}
+                type="text" 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Cari No Berkas, Perihal, Alamat... (Tekan /)" 
+                className="w-full pl-12 pr-14 py-3.5 bg-white/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl text-sm font-bold outline-none focus:ring-4 focus:ring-emerald-800/20 focus:border-emerald-800 transition-all text-slate-900 dark:text-white"
+              />
+              {searchTerm ? (
+                <button
+                  type="button"
+                  onClick={() => setSearchTerm('')}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-rose-500"
+                  title="Hapus Pencarian"
+                >
+                  <X size={16}/>
+                </button>
+              ) : (
+                <kbd className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-md bg-slate-200/80 dark:bg-slate-800 text-[10px] font-black text-slate-500 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none">/</kbd>
+              )}
+            </div>
+            
+            <div className="flex gap-2.5 flex-wrap sm:flex-nowrap">
+              {/* Filter Jenis Surat */}
+              <div className="relative shrink-0 sm:w-36">
+                <Filter className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+                <select 
+                  value={filterType}
+                  onChange={(e) => setFilterType(e.target.value)}
+                  className="w-full pl-9 pr-8 py-3.5 bg-white/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl text-[11px] font-bold uppercase tracking-wide outline-none appearance-none cursor-pointer transition-all text-slate-900 dark:text-white"
+                  title="Filter Jenis Surat"
+                >
+                  <option value="Semua">Semua Surat</option>
+                  <option value="Surat Masuk">Surat Masuk</option>
+                  <option value="Surat Keluar">Surat Keluar</option>
+                </select>
+                <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none rotate-90" size={14}/>
+              </div>
+
+              {/* Filter Cepat Berdasarkan Tahun */}
+              <div className="relative shrink-0 sm:w-36">
+                <CalendarDays className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+                <select 
+                  value={filterYear}
+                  onChange={(e) => setFilterYear(e.target.value)}
+                  className="w-full pl-9 pr-8 py-3.5 bg-white/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl text-[11px] font-bold uppercase tracking-wide outline-none appearance-none cursor-pointer transition-all text-slate-900 dark:text-white"
+                  title="Filter Berdasarkan Tahun"
+                >
+                  <option value="Semua">Semua Tahun</option>
+                  {availableYears.map((yr) => (
+                    <option key={yr} value={yr}>Tahun {yr}</option>
+                  ))}
+                </select>
+                <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none rotate-90" size={14}/>
+              </div>
+
+              {/* Urutkan */}
+              <div className="relative shrink-0 sm:w-44">
+                <ArrowUpDown className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+                <select 
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="w-full pl-9 pr-8 py-3.5 bg-white/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl text-[11px] font-bold uppercase tracking-wide outline-none appearance-none cursor-pointer transition-all text-slate-900 dark:text-white"
+                  title="Urutkan Arsip"
+                >
+                  <option value="Nomor Urut Terbaru">Terbaru</option>
+                  <option value="Nomor Urut Terlama">Terlama</option>
+                </select>
+                <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none rotate-90" size={14}/>
+              </div>
+
+              {/* Toggle Grid / Table View */}
+              <div className="flex items-center p-1 bg-white/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl shrink-0 self-start sm:self-auto">
+                <button
+                  type="button"
+                  onClick={() => setViewMode('grid')}
+                  className={`p-2.5 rounded-xl transition-all ${viewMode === 'grid' ? 'bg-emerald-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:hover:text-white'}`}
+                  title="Tampilan Kartu (Grid)"
+                >
+                  <LayoutGrid size={16}/>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('table')}
+                  className={`p-2.5 rounded-xl transition-all ${viewMode === 'table' ? 'bg-emerald-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:hover:text-white'}`}
+                  title="Tampilan Tabel (Baris)"
+                >
+                  <List size={16}/>
+                </button>
+              </div>
             </div>
           </div>
+
+          {/* Filter Rentang Tanggal */}
+          <div className="flex items-center gap-3 pt-2 border-t border-slate-200/70 dark:border-slate-800/70 flex-wrap">
+            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500">
+              <CalendarDays size={14} className="text-emerald-600 dark:text-emerald-400"/>
+              <span>Rentang Tanggal:</span>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="px-3.5 py-2 bg-white/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold outline-none focus:border-emerald-700 text-slate-900 dark:text-white"
+                title="Dari Tanggal"
+              />
+              <span className="text-[10px] font-black uppercase text-slate-400 text-center">s/d</span>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="px-3.5 py-2 bg-white/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold outline-none focus:border-emerald-700 text-slate-900 dark:text-white"
+                title="Sampai Tanggal"
+              />
+            </div>
+
+            {/* Preset Filter Waktu 1-Klik */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              {[
+                { key: 'today', label: 'Hari Ini' },
+                { key: '7days', label: '7 Hari Terakhir' },
+                { key: 'thisMonth', label: 'Bulan Ini' }
+              ].map((preset) => {
+                const isActive = activeDatePreset === preset.key;
+                return (
+                  <button
+                    key={preset.key}
+                    type="button"
+                    onClick={() => handleApplyDatePreset(preset.key)}
+                    className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border ${
+                      isActive
+                        ? 'bg-emerald-700 text-white border-emerald-700 shadow-sm shadow-emerald-700/20'
+                        : 'bg-white/80 dark:bg-slate-900/60 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-emerald-500 hover:text-emerald-700 dark:hover:text-emerald-400'
+                    }`}
+                  >
+                    {preset.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex items-center gap-2 ml-auto">
+              <span className="text-[10px] font-bold text-slate-500">
+                Menampilkan <strong className="text-slate-800 dark:text-slate-200">{filteredAndSortedDocs.length}</strong> arsip
+              </span>
+            </div>
+          </div>
+
+          {/* Filter Chips (Indikator Filter Aktif) */}
+          {hasActiveFilters && (
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-200/70 dark:border-slate-800/70 animate-in fade-in duration-200">
+              <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 mr-1">Filter Aktif:</span>
+              {searchTerm && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 text-[10px] font-black">
+                  Cari: "{searchTerm}"
+                  <button type="button" onClick={() => setSearchTerm('')} className="hover:text-rose-600 transition-colors" title="Hapus kata kunci"><X size={12}/></button>
+                </span>
+              )}
+              {filterType !== 'Semua' && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-[10px] font-black">
+                  Jenis: {filterType}
+                  <button type="button" onClick={() => setFilterType('Semua')} className="hover:text-rose-600 transition-colors" title="Hapus filter jenis"><X size={12}/></button>
+                </span>
+              )}
+              {filterYear !== 'Semua' && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-800 text-[10px] font-black">
+                  Tahun: {filterYear}
+                  <button type="button" onClick={() => setFilterYear('Semua')} className="hover:text-rose-600 transition-colors" title="Hapus filter tahun"><X size={12}/></button>
+                </span>
+              )}
+              {dateFrom && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-[10px] font-black">
+                  Dari: {formatDateIndo(dateFrom)}
+                  <button type="button" onClick={() => setDateFrom('')} className="hover:text-rose-600 transition-colors" title="Hapus tanggal mulai"><X size={12}/></button>
+                </span>
+              )}
+              {dateTo && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-[10px] font-black">
+                  Sampai: {formatDateIndo(dateTo)}
+                  <button type="button" onClick={() => setDateTo('')} className="hover:text-rose-600 transition-colors" title="Hapus tanggal akhir"><X size={12}/></button>
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => { setSearchTerm(''); setFilterType('Semua'); setFilterYear('Semua'); setDateFrom(''); setDateTo(''); }}
+                className="ml-auto px-3 py-1 bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 hover:bg-rose-600 hover:text-white rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1 transition-colors"
+              >
+                <RotateCcw size={11}/> Reset Semua
+              </button>
+            </div>
+          )}
         </div>
 
         {/* TOMBOL AKSI LAPORAN & TAMBAH MANUAL (HANYA MUNCUL JIKA ADA ADMIN LOGIN) */}
         {isAdmin && (
-          <div className={`max-w-5xl mx-auto mt-6 flex justify-between animate-in fade-in zoom-in duration-500 gap-3 ${isMobileView ? 'flex-col px-4' : 'flex-wrap'}`}>
-            <div className="flex gap-2">
-                <button 
-                  onClick={() => { 
-                    setEditingDoc(null); 
-                    resetForm();
-                    setShowDocForm(true); 
-                  }} 
-                  className="px-8 py-4 bg-emerald-800 text-white rounded-2xl font-black uppercase text-[11px] tracking-widest btn-3d flex items-center justify-center gap-3 shadow-emerald-900/30 shrink-0"
-                >
-                  <Plus size={18} /> Tambah Arsip Baru
-                </button>
-                {adminUser?.role === 'superadmin' && documents.length > 0 && (
+          <div className="max-w-5xl mx-auto mt-6 flex justify-between animate-in fade-in zoom-in duration-500 gap-3 w-full flex-wrap">
+            <div className="flex flex-wrap gap-2">
+                {!isTrashView && (
+                  <button 
+                    onClick={() => { 
+                      setEditingDoc(null); 
+                      resetForm();
+                      setShowDocForm(true); 
+                    }} 
+                    className="px-8 py-4 bg-emerald-800 text-white rounded-2xl font-black uppercase text-[11px] tracking-widest btn-3d flex items-center justify-center gap-3 shadow-emerald-900/30 shrink-0"
+                  >
+                    <Plus size={18} /> Tambah Arsip Baru
+                  </button>
+                )}
+                {adminUser?.role === 'superadmin' && (isTrashView ? trashedDocuments.length > 0 : activeDocuments.length > 0) && (
                    <button 
-                      onClick={() => setIsSelectionMode(!isSelectionMode)} 
+                      onClick={() => {
+                        setIsSelectionMode(!isSelectionMode);
+                        setSelectedItemsForAction([]);
+                      }} 
                       className={`px-5 py-4 rounded-2xl font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-2 transition-all ${isSelectionMode ? 'bg-orange-500 text-white shadow-orange-500/30 btn-3d-orange' : 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300'}`}
                    >
                      <CheckSquare size={18} /> {isSelectionMode ? 'Batal Pilih' : 'Pilih Banyak'}
                    </button>
                 )}
+                {adminUser?.role === 'superadmin' && (
+                  <button
+                    onClick={() => {
+                      setIsTrashView(!isTrashView);
+                      setIsSelectionMode(false);
+                      setSelectedItemsForAction([]);
+                    }}
+                    className={`px-5 py-4 rounded-2xl font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-2 transition-all ${
+                      isTrashView
+                        ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/30'
+                        : 'bg-rose-100/80 dark:bg-rose-950/50 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800/60 hover:bg-rose-600 hover:text-white'
+                    }`}
+                    title="Buka Sampah / Recycle Bin"
+                  >
+                    <Trash2 size={17} />
+                    <span>{isTrashView ? 'Kembali ke Arsip' : 'Sampah'}</span>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${isTrashView ? 'bg-white/20 text-white' : 'bg-rose-600 text-white'}`}>
+                      {trashedDocuments.length}
+                    </span>
+                  </button>
+                )}
             </div>
             
-            <div className="flex gap-2">
-              <button onClick={handleExportExcel} className="px-5 py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase text-[11px] tracking-widest btn-3d flex items-center justify-center gap-2 shadow-emerald-600/30 flex-1 sm:flex-none" title="Ekspor ke Excel">
-                <Table size={18} /> <span className={isMobileView ? 'inline' : 'hidden sm:inline'}>Excel</span>
-              </button>
-              <button onClick={handleExportWord} className="px-5 py-4 bg-blue-700 text-white rounded-2xl font-black uppercase text-[11px] tracking-widest btn-3d flex items-center justify-center gap-2 shadow-blue-700/30 flex-1 sm:flex-none" title="Ekspor ke Word">
-                <FileText size={18} /> <span className={isMobileView ? 'inline' : 'hidden sm:inline'}>Word</span>
-              </button>
-              <button onClick={handlePrintReport} className="px-5 py-4 bg-slate-700 text-white rounded-2xl font-black uppercase text-[11px] tracking-widest btn-3d flex items-center justify-center gap-2 shadow-slate-700/30 flex-1 sm:flex-none" title="Cetak/Print Laporan">
-                <Printer size={18} /> <span className={isMobileView ? 'inline' : 'hidden sm:inline'}>Print</span>
-              </button>
-            </div>
+            {!isTrashView && (
+              <div className="flex gap-2">
+                <button onClick={() => handleExportExcel()} className="px-5 py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase text-[11px] tracking-widest btn-3d flex items-center justify-center gap-2 shadow-emerald-600/30 flex-1 sm:flex-none" title="Ekspor ke Excel">
+                  <Table size={18} /> <span className="hidden sm:inline">Excel</span>
+                </button>
+                <button onClick={() => handleExportWord()} className="px-5 py-4 bg-blue-700 text-white rounded-2xl font-black uppercase text-[11px] tracking-widest btn-3d flex items-center justify-center gap-2 shadow-blue-700/30 flex-1 sm:flex-none" title="Ekspor ke Word">
+                  <FileText size={18} /> <span className="hidden sm:inline">Word</span>
+                </button>
+                <button onClick={() => handlePrintReport()} className="px-5 py-4 bg-slate-700 text-white rounded-2xl font-black uppercase text-[11px] tracking-widest btn-3d flex items-center justify-center gap-2 shadow-slate-700/30 flex-1 sm:flex-none" title="Cetak/Print Laporan">
+                  <Printer size={18} /> <span className="hidden sm:inline">Print</span>
+                </button>
+              </div>
+            )}
           </div>
         )}
 
-        {/* DOCUMENTS GRID */}
-        {paginatedDocs.length === 0 ? (
-          <div className="flex-1 flex flex-col items-center justify-center text-center animate-in fade-in duration-500 opacity-60 mt-20">
-            <FileText size={80} className="text-slate-400 dark:text-slate-600 mb-6" />
-            <h3 className="text-xl font-black text-slate-800 dark:text-slate-200 mb-2">Data Arsip Kosong</h3>
-            <p className="text-sm font-bold text-slate-500">Silakan sesuaikan filter kata kunci Anda.</p>
+        {/* BANNER MODE SAMPAH / RECYCLE BIN */}
+        {isTrashView && adminUser?.role === 'superadmin' && (
+          <div className="max-w-5xl mx-auto mt-5 glass-card p-5 rounded-[2rem] border border-rose-300 dark:border-rose-800/70 bg-rose-50/80 dark:bg-rose-950/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 w-full animate-in fade-in duration-300">
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-rose-100 dark:bg-rose-900/50 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+                <Trash2 size={22}/>
+              </div>
+              <div>
+                <h3 className="text-sm font-black uppercase tracking-wider text-rose-700 dark:text-rose-400">Sampah / Recycle Bin ({trashedDocuments.length} Arsip)</h3>
+                <p className="text-xs font-semibold text-slate-600 dark:text-slate-400 mt-0.5">
+                  Arsip yang dihapus sementara tersimpan di database. Anda dapat memulihkannya kembali atau menghapusnya secara permanen.
+                </p>
+              </div>
+            </div>
+            {trashedDocuments.length > 0 && (
+              <button
+                type="button"
+                onClick={handleEmptyTrash}
+                className="px-5 py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shrink-0 shadow-md shadow-rose-600/20 transition-colors"
+              >
+                <Trash2 size={14}/> Kosongkan Sampah
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* DOCUMENTS GRID / TABLE VIEW / SKELETON LOADING */}
+        {isLoadingDocs ? (
+          <div className="grid gap-6 mt-8 mb-10 w-full grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, idx) => (
+              <div key={idx} className="glass-card p-6 rounded-[2rem] border border-slate-200/70 dark:border-slate-800/70 animate-pulse flex flex-col gap-4">
+                <div className="flex justify-between items-center">
+                  <div className="h-12 w-20 rounded-xl bg-slate-200 dark:bg-slate-800"></div>
+                  <div className="h-7 w-24 rounded-xl bg-slate-200 dark:bg-slate-800"></div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-800 shrink-0"></div>
+                  <div className="flex-1 space-y-2">
+                    <div className="h-2.5 w-16 rounded bg-slate-200 dark:bg-slate-800"></div>
+                    <div className="h-4 w-3/4 rounded bg-slate-200 dark:bg-slate-800"></div>
+                  </div>
+                </div>
+                <div className="h-12 w-full rounded-xl bg-slate-200 dark:bg-slate-800"></div>
+                <div className="space-y-2">
+                  <div className="h-3 w-full rounded bg-slate-200 dark:bg-slate-800"></div>
+                  <div className="h-3 w-2/3 rounded bg-slate-200 dark:bg-slate-800"></div>
+                </div>
+                <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex justify-between items-center">
+                  <div className="h-3 w-28 rounded bg-slate-200 dark:bg-slate-800"></div>
+                  <div className="h-9 w-9 rounded-xl bg-slate-200 dark:bg-slate-800"></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : paginatedDocs.length === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center text-center animate-in fade-in duration-500 opacity-60 mt-16">
+            {isTrashView ? <Trash2 size={80} className="text-rose-400 dark:text-rose-600 mb-6" /> : <FileText size={80} className="text-slate-400 dark:text-slate-600 mb-6" />}
+            <h3 className="text-xl font-black text-slate-800 dark:text-slate-200 mb-2">{isTrashView ? 'Sampah Kosong' : 'Data Arsip Kosong'}</h3>
+            <p className="text-sm font-bold text-slate-500">{isTrashView ? 'Tidak ada arsip yang dihapus sementara di Recycle Bin.' : 'Silakan sesuaikan filter kata kunci, tahun, atau rentang tanggal Anda.'}</p>
+          </div>
+        ) : viewMode === 'table' ? (
+          <div className="glass-card rounded-[2rem] border border-slate-300 dark:border-slate-700/50 shadow-xl mt-8 mb-10 overflow-hidden w-full">
+            <div data-lenis-prevent className="overflow-auto max-h-[68vh]">
+              <table className="w-full text-left border-collapse">
+                <thead className="sticky top-0 z-20 bg-slate-100/95 dark:bg-slate-900/95 backdrop-blur-md shadow-sm">
+                  <tr className="border-b border-slate-200 dark:border-slate-800 text-[10px] font-black uppercase tracking-widest text-slate-500">
+                    {isSelectionMode && <th className="py-4 px-4 w-10 text-center">Pilih</th>}
+                    <th className="py-4 px-4 whitespace-nowrap">Agenda</th>
+                    <th className="py-4 px-4 whitespace-nowrap">Jenis</th>
+                    <th className="py-4 px-4 whitespace-nowrap">No. Berkas</th>
+                    <th className="py-4 px-4 whitespace-nowrap">Pengirim / Penerima</th>
+                    <th className="py-4 px-4 min-w-[220px]">Perihal</th>
+                    <th className="py-4 px-4 whitespace-nowrap">Tanggal</th>
+                    <th className="py-4 px-4 text-right whitespace-nowrap">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200/70 dark:divide-slate-800/70 text-xs">
+                  {paginatedDocs.map((docItem) => {
+                    const isSelected = selectedItemsForAction.includes(docItem.id);
+                    return (
+                      <tr
+                        key={docItem.id}
+                        onClick={isSelectionMode ? () => handleToggleSelectDoc(docItem.id) : () => { setSelectedDoc(docItem); setShowHistory(false); }}
+                        className={`transition-colors cursor-pointer ${isSelected ? 'bg-orange-50/70 dark:bg-orange-900/20' : 'hover:bg-emerald-50/50 dark:hover:bg-slate-800/50'}`}
+                      >
+                        {isSelectionMode && (
+                          <td className="py-3.5 px-4 text-center" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              onClick={() => handleToggleSelectDoc(docItem.id)}
+                              className={`w-5 h-5 rounded border-2 inline-flex items-center justify-center transition-colors ${isSelected ? 'bg-orange-500 border-orange-500 text-white' : 'border-slate-400 dark:border-slate-500'}`}
+                            >
+                              {isSelected && <Check size={13}/>}
+                            </button>
+                          </td>
+                        )}
+                        <td className="py-3.5 px-4 whitespace-nowrap font-black text-slate-900 dark:text-white">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-emerald-500">#</span>{highlightText(docItem.nomorUrut, searchTerm)}
+                            {docItem.isPinned && <Pin size={12} className="text-emerald-500 fill-current"/>}
+                          </div>
+                        </td>
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${getStatusBadgeClass(docItem.jenisSurat)}`}>
+                            {docItem.jenisSurat}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          <div className="flex items-center gap-2">
+                            <span className="font-black text-slate-900 dark:text-white">{highlightText(docItem.nomorBerkas, searchTerm)}</span>
+                            {docItem.nomorBerkas && (
+                              <button
+                                type="button"
+                                onClick={(e) => handleCopyText(docItem.nomorBerkas, docItem.id, e)}
+                                className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-emerald-700 dark:hover:text-emerald-400 transition-colors"
+                                title="Salin Nomor Berkas"
+                              >
+                                {copiedId === docItem.id ? <Check size={13} className="text-emerald-500"/> : <Copy size={13}/>}
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-3.5 px-4 font-bold text-slate-700 dark:text-slate-300 max-w-[180px] truncate">
+                          {highlightText(docItem.alamatPenerima, searchTerm)}
+                        </td>
+                        <td className="py-3.5 px-4 text-slate-600 dark:text-slate-300 font-medium">
+                          <p className="line-clamp-2">{highlightText(docItem.perihal, searchTerm)}</p>
+                        </td>
+                        <td className="py-3.5 px-4 whitespace-nowrap font-bold text-slate-500 dark:text-slate-400">
+                          {formatDateIndo(docItem.tanggal)}
+                        </td>
+                        <td className="py-3.5 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                          <div className="inline-flex items-center gap-1.5">
+                            {isTrashView && adminUser?.role === 'superadmin' ? (
+                              <>
+                                <button
+                                  onClick={(e) => handleRestoreDoc(docItem, e)}
+                                  className="px-2.5 py-1.5 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 rounded-lg hover:bg-emerald-600 hover:text-white transition-all text-[10px] font-black uppercase tracking-wider flex items-center gap-1"
+                                  title="Pulihkan ke Arsip Aktif"
+                                >
+                                  <RotateCcw size={12}/> Pulihkan
+                                </button>
+                                <button
+                                  onClick={(e) => handlePermanentDeleteDoc(docItem, e)}
+                                  className="p-1.5 bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-400 rounded-lg hover:bg-rose-600 hover:text-white transition-all"
+                                  title="Hapus Permanen"
+                                >
+                                  <Trash2 size={13}/>
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                {!isSelectionMode && isAdmin && (
+                                  <button
+                                    onClick={(e) => handleDuplicateDoc(docItem, e)}
+                                    className="p-1.5 bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400 rounded-lg hover:bg-blue-600 hover:text-white transition-all"
+                                    title="Duplikat / Buat Serupa"
+                                  >
+                                    <CopyPlus size={13}/>
+                                  </button>
+                                )}
+                                {!isSelectionMode && adminUser?.role === 'superadmin' && (
+                                  <>
+                                    <button onClick={(e) => handleTogglePin(docItem.id, e)} className={`p-1.5 rounded-lg transition-all ${docItem.isPinned ? 'bg-emerald-500 text-white' : 'bg-emerald-100 text-emerald-600 hover:bg-emerald-600 hover:text-white dark:bg-emerald-900/40'}`} title={docItem.isPinned ? "Lepas Sematan" : "Prioritaskan"}><Pin size={13} className={docItem.isPinned ? "fill-current" : ""}/></button>
+                                    <button onClick={(e) => handleOpenEditDoc(docItem, e)} className="p-1.5 bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-400 rounded-lg hover:bg-orange-600 hover:text-white transition-all" title="Edit Data"><Edit size={13}/></button>
+                                    <button onClick={(e) => handleDeleteDoc(docItem.id, e)} className="p-1.5 bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-400 rounded-lg hover:bg-rose-600 hover:text-white transition-all" title="Pindahkan ke Sampah"><Trash2 size={13}/></button>
+                                  </>
+                                )}
+                              </>
+                            )}
+                            <button
+                              onClick={() => { setSelectedDoc(docItem); setShowHistory(false); }}
+                              className="p-1.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-800 dark:text-emerald-400 rounded-lg hover:bg-emerald-800 hover:text-white transition-all"
+                              title="Lihat Detail"
+                            >
+                              <ChevronRight size={15}/>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         ) : (
-          <div className={`grid gap-6 mt-10 mb-10 w-full ${isMobileView ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'}`}>
-            {paginatedDocs.map((docItem) => {
+          <div className="grid gap-6 mt-8 mb-10 w-full grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+            {paginatedDocs.map((docItem, idx) => {
               const isSelected = selectedItemsForAction.includes(docItem.id);
 
               return (
@@ -1174,70 +2520,48 @@ export default function App() {
                 >
                   <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${getStatusBadgeClass(docItem.jenisSurat).split(' ')[0]}`}></div>
 
-                  {isSelectionMode && (
-                     <div className={`absolute top-5 right-6 w-6 h-6 rounded flex items-center justify-center z-30 transition-colors border-2 ${isSelected ? 'bg-orange-500 border-orange-500 text-white' : 'border-slate-400 dark:border-slate-500 bg-white/50 dark:bg-slate-800/50'}`}>
-                        {isSelected && <CheckSquare size={16} className="text-white"/>}
-                     </div>
-                  )}
-
-                  {!isSelectionMode && isAdmin && (
-                    <div className="absolute top-5 right-6 flex gap-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                      {adminUser?.role === 'superadmin' && (
-                        <button onClick={(e) => handleTogglePin(docItem.id, e)} className={`p-2 rounded-xl transition-all shadow-sm ${docItem.isPinned ? 'bg-emerald-500 text-white hover:bg-emerald-600' : 'bg-emerald-100 text-emerald-600 hover:bg-emerald-600 hover:text-white dark:bg-emerald-900/40'}`} title={docItem.isPinned ? "Lepas Sematan" : "Prioritaskan"}><Pin size={14} className={docItem.isPinned ? "fill-current" : ""}/></button>
-                      )}
-                      <button onClick={(e) => { 
-                         e.stopPropagation(); 
-                         
-                         let editFormatSurat = docItem.formatSurat || (docItem.modelSurat === 'Surat Keterangan / SK' ? 'Naskah Dinas Penetapan' : 'Naskah Dinas Korespondensi/ Khusus');
-                         let depan = docItem.nomorBerkasDepan !== undefined ? docItem.nomorBerkasDepan : docItem.nomorBerkas; 
-                         let belakang = docItem.nomorBerkasBelakang !== undefined ? docItem.nomorBerkasBelakang : '';
-
-                         if (docItem.nomorBerkasDepan === undefined && docItem.nomorBerkas.includes('/')) {
-                             const parts = docItem.nomorBerkas.split('/');
-                             if (parts.length >= 3) {
-                                 editFormatSurat = 'Naskah Dinas Penetapan';
-                                 depan = parts[0];
-                                 belakang = parts.slice(2).join('/');
-                             } else if (parts.length === 2) {
-                                 depan = parts[0];
-                             }
-                         }
-
-                         setEditingDoc(docItem); 
-                         setFormData({
-                            ...docItem, 
-                            formatSurat: editFormatSurat,
-                            nomorBerkas: depan,
-                            nomorBerkasBelakang: belakang
-                         }); 
-                         setShowDocForm(true); 
-                      }} className="p-2 bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-400 rounded-xl hover:bg-orange-600 hover:text-white transition-all shadow-sm" title="Edit Data"><Edit size={14}/></button>
-                      {adminUser?.role === 'superadmin' && (
-                        <button onClick={(e) => handleDeleteDoc(docItem.id, e)} className="p-2 bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-400 rounded-xl hover:bg-rose-600 hover:text-white transition-all shadow-sm" title="Hapus Data"><Trash2 size={14}/></button>
-                      )}
-                    </div>
-                  )}
-                  {!isSelectionMode && adminUser?.role !== 'superadmin' && docItem.isPinned && (
-                    <div className="absolute top-5 right-6 flex gap-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                      <span className="p-2 rounded-xl bg-emerald-500 text-white shadow-sm" title="Prioritas"><Pin size={14} className="fill-current"/></span>
-                    </div>
-                  )}
-
-                  <div className="flex justify-between items-start mb-4 pl-2 pr-24 relative z-20 pointer-events-none">
-                    <div className="flex flex-col items-start bg-white/80 dark:bg-slate-900/80 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm backdrop-blur-sm">
+                  <div className="flex justify-between items-start gap-3 mb-5 pl-2 relative z-20">
+                    <div className="flex flex-col items-start bg-white/80 dark:bg-slate-900/80 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm backdrop-blur-sm shrink-0">
                       <span className="text-[8px] uppercase tracking-[0.2em] font-black text-slate-400 dark:text-slate-500 mb-0.5">No. Agenda</span>
                       <div className="text-xl font-black text-slate-800 dark:text-white drop-shadow-sm flex items-center gap-1 leading-none">
-                        <span className="text-emerald-500">#</span>{ docItem.nomorUrut }
+                        <span className="text-emerald-500">#</span>{highlightText(docItem.nomorUrut, searchTerm)}
                       </div>
                     </div>
 
-                    <div className="flex gap-2 items-start">
-                      {docItem.isPinned && (
-                        <span className="px-2 py-1 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 rounded-xl text-[9px] font-black uppercase tracking-widest border border-emerald-200 dark:border-emerald-800 flex items-center gap-1 shadow-sm"><Pin size={10} className="fill-current"/> Prioritas</span>
+                    <div className="flex flex-col items-end gap-2.5 min-w-0">
+                      <div className="flex flex-wrap justify-end items-center gap-1.5">
+                        {docItem.isPinned && (
+                          <span className="px-2 py-1 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 rounded-xl text-[9px] font-black uppercase tracking-widest border border-emerald-200 dark:border-emerald-800 flex items-center gap-1 shadow-sm"><Pin size={10} className="fill-current"/> Prioritas</span>
+                        )}
+                        <span className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-sm border border-transparent whitespace-nowrap ${getStatusBadgeClass(docItem.jenisSurat)}`}>
+                          {docItem.jenisSurat}
+                        </span>
+                        {isSelectionMode && (
+                          <div className={`w-6 h-6 rounded flex items-center justify-center transition-colors border-2 shrink-0 ${isSelected ? 'bg-orange-500 border-orange-500 text-white' : 'border-slate-400 dark:border-slate-500 bg-white/50 dark:bg-slate-800/50'}`}>
+                            {isSelected && <CheckSquare size={16} className="text-white"/>}
+                          </div>
+                        )}
+                      </div>
+
+                      {!isSelectionMode && isAdmin && (
+                        isTrashView && adminUser?.role === 'superadmin' ? (
+                          <div className="flex items-center gap-2">
+                            <button onClick={(e) => handleRestoreDoc(docItem, e)} className="px-2.5 py-1.5 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 rounded-xl hover:bg-emerald-600 hover:text-white transition-all shadow-sm text-[10px] font-black uppercase tracking-wider flex items-center gap-1" title="Pulihkan ke Arsip Aktif"><RotateCcw size={12}/> Pulihkan</button>
+                            <button onClick={(e) => handlePermanentDeleteDoc(docItem, e)} className="p-2 bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-400 rounded-xl hover:bg-rose-600 hover:text-white transition-all shadow-sm" title="Hapus Permanen"><Trash2 size={14}/></button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300">
+                            <button onClick={(e) => handleDuplicateDoc(docItem, e)} className="p-2 bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400 rounded-xl hover:bg-blue-600 hover:text-white transition-all shadow-sm" title="Duplikat / Buat Serupa"><CopyPlus size={14}/></button>
+                            {adminUser?.role === 'superadmin' && (
+                              <>
+                                <button onClick={(e) => handleTogglePin(docItem.id, e)} className={`p-2 rounded-xl transition-all shadow-sm ${docItem.isPinned ? 'bg-emerald-500 text-white hover:bg-emerald-600' : 'bg-emerald-100 text-emerald-600 hover:bg-emerald-600 hover:text-white dark:bg-emerald-900/40'}`} title={docItem.isPinned ? "Lepas Sematan" : "Prioritaskan"}><Pin size={14} className={docItem.isPinned ? "fill-current" : ""}/></button>
+                                <button onClick={(e) => handleOpenEditDoc(docItem, e)} className="p-2 bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-400 rounded-xl hover:bg-orange-600 hover:text-white transition-all shadow-sm" title="Edit Data"><Edit size={14}/></button>
+                                <button onClick={(e) => handleDeleteDoc(docItem.id, e)} className="p-2 bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-400 rounded-xl hover:bg-rose-600 hover:text-white transition-all shadow-sm" title="Pindahkan ke Sampah"><Trash2 size={14}/></button>
+                              </>
+                            )}
+                          </div>
+                        )
                       )}
-                      <span className={`px-2.5 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-sm border border-transparent ${getStatusBadgeClass(docItem.jenisSurat)}`}>
-                        {docItem.jenisSurat}
-                      </span>
                     </div>
                   </div>
                   
@@ -1246,28 +2570,53 @@ export default function App() {
                       <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-emerald-800 dark:text-emerald-400 shrink-0 border border-slate-200 dark:border-slate-700 overflow-hidden">
                         <FileText size={20} />
                       </div>
-                      <div>
+                      <div className="flex-1 min-w-0">
                         <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">No. Berkas</p>
-                        <h3 className="text-sm font-black leading-snug text-slate-900 dark:text-white group-hover:text-emerald-700 dark:group-hover:text-emerald-400 transition-colors line-clamp-1">
-                          {docItem.nomorBerkas || '-'}
-                        </h3>
+                        <div className="flex items-center gap-1.5">
+                          <h3 className="text-sm font-black leading-snug text-slate-900 dark:text-white group-hover:text-emerald-700 dark:group-hover:text-emerald-400 transition-colors line-clamp-1">
+                            {highlightText(docItem.nomorBerkas, searchTerm)}
+                          </h3>
+                          {docItem.nomorBerkas && !isSelectionMode && (
+                            <button
+                              type="button"
+                              onClick={(e) => handleCopyText(docItem.nomorBerkas, docItem.id, e)}
+                              className="p-1 rounded-lg text-slate-400 hover:text-emerald-700 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-colors shrink-0"
+                              title="Salin Nomor Berkas"
+                            >
+                              {copiedId === docItem.id ? <Check size={14} className="text-emerald-500"/> : <Copy size={14}/>}
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700/50 mb-2">
+                    <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700/50 mb-2.5">
                       <Building size={16} className="text-orange-600 shrink-0"/>
                       <div className="overflow-hidden flex-1">
                         <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">
                           {docItem.jenisSurat === 'Surat Masuk' ? 'Pengirim' : 'Penerima'}
                         </p>
-                        <p className="text-sm font-bold text-slate-800 dark:text-slate-200 truncate">{docItem.alamatPenerima || '-'}</p>
+                        <p className="text-sm font-bold text-slate-800 dark:text-slate-200 truncate">{highlightText(docItem.alamatPenerima, searchTerm)}</p>
                       </div>
+                    </div>
+
+                    {/* Perihal Surat Langsung Tampil di Kartu */}
+                    <div className="px-1">
+                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Perihal</p>
+                      <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 line-clamp-2 leading-relaxed">
+                        {highlightText(docItem.perihal, searchTerm)}
+                      </p>
                     </div>
                   </div>
 
                   <div className="pt-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between mt-auto pl-2">
-                    <div className="text-[10px] font-bold text-slate-500 flex flex-col gap-1.5">
+                    <div className="text-[10px] font-bold text-slate-500 flex flex-col gap-1">
                       <span className="flex items-center gap-1.5"><CalendarDays size={12} className="text-emerald-600 dark:text-emerald-400"/> {formatDateIndo(docItem.tanggal)}</span>
+                      {isTrashView && docItem.deletedAt && (
+                        <span className="text-[9px] text-rose-600 dark:text-rose-400">
+                          Dihapus: {formatDateTimeIndo(docItem.deletedAt)}
+                        </span>
+                      )}
                     </div>
                     <button 
                       onClick={(e) => { 
@@ -1289,7 +2638,7 @@ export default function App() {
 
         {/* PAGINATION CONTROLS */}
         {filteredAndSortedDocs.length > 0 && (
-          <div className={`pt-6 flex justify-between items-center gap-4 glass-card p-4 rounded-[2rem] w-full ${isMobileView ? 'flex-col' : 'flex-col sm:flex-row'}`}>
+          <div className="pt-6 flex justify-between items-center gap-4 glass-card p-4 rounded-[2rem] w-full flex-col sm:flex-row">
             <div className="flex items-center gap-3 w-full sm:w-auto">
               <ListOrdered size={18} className="text-slate-400 shrink-0"/>
               <span className="text-[11px] font-black uppercase tracking-widest text-slate-500 shrink-0">Tampilkan:</span>
@@ -1386,7 +2735,27 @@ export default function App() {
         <div className="fixed inset-0 z-[800] flex items-center justify-center p-4 sm:p-6 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300">
           <div className="glass-card p-10 rounded-[3rem] w-full max-w-sm shadow-2xl relative text-center border border-emerald-800/30 overflow-hidden">
             <button onClick={() => { setShowLoginModal(false); setLoginError(''); }} className="absolute top-6 right-6 p-2 text-slate-500 hover:text-rose-500 transition-colors"><X size={18}/></button>
-            <Shield size={60} className="text-emerald-800 mx-auto mb-6 drop-shadow-md"/>
+            {logoSettings.image ? (
+              <div
+                className="mx-auto mb-6 overflow-hidden flex items-center justify-center drop-shadow-md"
+                style={{
+                  width: '68px',
+                  height: '68px',
+                  borderRadius: `${logoSettings.radius ?? 12}%`
+                }}
+              >
+                <img
+                  src={logoSettings.image}
+                  alt="Logo SIGAP"
+                  className="w-full h-full object-contain pointer-events-none select-none"
+                  style={{
+                    transform: `translate(${logoSettings.offsetX ?? 0}px, ${logoSettings.offsetY ?? 0}px) scale(${(logoSettings.scale ?? 100) / 100})`
+                  }}
+                />
+              </div>
+            ) : (
+              <Shield size={60} className="text-emerald-800 mx-auto mb-6 drop-shadow-md"/>
+            )}
             <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-2">Akses Petugas</h2>
             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-8">Login untuk Mengelola SIGAP</p>
 
@@ -1464,9 +2833,20 @@ export default function App() {
                       <p className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5 mb-1"><ListOrdered size={12}/> No. Agenda</p>
                       <p className="text-sm font-black text-slate-900 dark:text-white">#{selectedDoc.nomorUrut}</p>
                     </div>
-                    <div className="bg-white/60 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
-                      <p className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5 mb-1"><FileText size={12}/> No. Berkas</p>
-                      <p className="text-sm font-black text-slate-900 dark:text-white">{selectedDoc.nomorBerkas || '-'}</p>
+                    <div className="bg-white/60 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm col-span-2">
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <p className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5"><FileText size={12}/> No. Berkas</p>
+                        {selectedDoc.nomorBerkas && (
+                          <button
+                            type="button"
+                            onClick={(e) => handleCopyText(selectedDoc.nomorBerkas, `detail-${selectedDoc.id}`, e)}
+                            className="px-2.5 py-1 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-700 hover:text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 transition-colors"
+                          >
+                            {copiedId === `detail-${selectedDoc.id}` ? <><Check size={12}/> Tersalin</> : <><Copy size={12}/> Salin</>}
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-sm font-black text-slate-900 dark:text-white break-all">{selectedDoc.nomorBerkas || '-'}</p>
                     </div>
                   </div>
                   <div className="text-right">
@@ -1499,7 +2879,16 @@ export default function App() {
             </div>
 
             <div className="p-6 border-t border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 flex flex-col sm:flex-row gap-3 mt-auto shrink-0">
-              <button onClick={() => setSelectedDoc(null)} className="w-full py-4 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-2xl font-black uppercase text-[11px] tracking-widest hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors">
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={(e) => handleDuplicateDoc(selectedDoc, e)}
+                  className="flex-1 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black uppercase text-[11px] tracking-widest transition-colors flex items-center justify-center gap-2 shadow-md shadow-blue-600/20"
+                >
+                  <CopyPlus size={16}/> Buat Serupa
+                </button>
+              )}
+              <button onClick={() => setSelectedDoc(null)} className="flex-1 py-4 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-2xl font-black uppercase text-[11px] tracking-widest hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors">
                 Tutup
               </button>
             </div>
@@ -1509,12 +2898,18 @@ export default function App() {
 
       {/* MODAL FORM TAMBAH/EDIT ARSIP */}
       {showDocForm && isAdmin && (
-        <div className="fixed inset-0 z-[700] flex items-center justify-center p-4 sm:p-6 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="glass-card p-0 rounded-[3rem] w-full max-w-2xl shadow-[0_0_50px_rgba(6,95,70,0.15)] relative border border-emerald-800/30 overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-300">
+        <div
+          className="fixed inset-0 z-[700] flex items-center justify-center p-4 sm:p-6 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300"
+          onClick={handleRequestCloseDocForm}
+        >
+          <div
+            className="glass-card p-0 rounded-[3rem] w-full max-w-2xl shadow-[0_0_50px_rgba(6,95,70,0.15)] relative border border-emerald-800/30 overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-300"
+            onClick={e => e.stopPropagation()}
+          >
             
             <div className="p-8 pb-6 border-b border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 relative shrink-0">
               <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-emerald-700 to-orange-500"></div>
-              <button onClick={() => setShowDocForm(false)} className="absolute top-6 right-6 p-2 bg-slate-100 dark:bg-slate-800 rounded-full text-slate-500 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors">
+              <button onClick={handleRequestCloseDocForm} className="absolute top-6 right-6 p-2 bg-slate-100 dark:bg-slate-800 rounded-full text-slate-500 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors">
                 <X size={18}/>
               </button>
               <div className="flex items-center gap-4 mb-2">
@@ -1599,11 +2994,63 @@ export default function App() {
                   )}
                 </div>
 
-                <div className="space-y-1.5">
+                {/* Live Preview Hasil Gabungan Nomor Berkas */}
+                <div className="p-4 rounded-2xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
+                      <FileText size={12}/> Pratinjau Hasil Nomor Surat
+                    </span>
+                    {previewNomorBerkas && previewNomorBerkas.includes('//') && (
+                      <span className="text-[9px] font-black uppercase tracking-wider text-rose-600 dark:text-rose-400 flex items-center gap-1">
+                        <AlertCircle size={12}/> Terdeteksi tanda "//" ganda
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm font-black text-slate-900 dark:text-white break-all">
+                    {previewNomorBerkas || <span className="text-slate-400 font-semibold italic">Ketik nomor berkas untuk melihat hasil gabungan...</span>}
+                  </p>
+                </div>
+
+                <div className="space-y-1.5 relative">
                   <label className="text-[10px] font-black uppercase text-slate-800 dark:text-slate-400 ml-1">
                     {formData.jenisSurat === 'Surat Masuk' ? 'Alamat Pengirim' : 'Alamat Penerima'}
                   </label>
-                  <input type="text" value={formData.alamatPenerima} onChange={e=>setFormData({...formData, alamatPenerima: e.target.value})} placeholder="Nama instansi atau orang" className="w-full px-5 py-4 premium-input rounded-2xl text-xs font-bold outline-none transition-all text-slate-900 dark:text-white" required />
+                  <input
+                    type="text"
+                    value={formData.alamatPenerima}
+                    onChange={e => {
+                      setFormData({...formData, alamatPenerima: e.target.value});
+                      setShowAlamatSuggestions(true);
+                    }}
+                    onFocus={() => setShowAlamatSuggestions(true)}
+                    onBlur={() => setTimeout(() => setShowAlamatSuggestions(false), 150)}
+                    placeholder="Nama instansi atau orang (saran otomatis tersedia)"
+                    autoComplete="off"
+                    className="w-full px-5 py-4 premium-input rounded-2xl text-xs font-bold outline-none transition-all text-slate-900 dark:text-white"
+                    required
+                  />
+                  {showAlamatSuggestions && filteredAlamatSuggestions.length > 0 && (
+                    <div className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-800/70 rounded-2xl shadow-2xl overflow-hidden max-h-52 overflow-y-auto">
+                      <div className="px-3.5 py-2 bg-slate-50 dark:bg-slate-800/70 border-b border-slate-100 dark:border-slate-800 text-[9px] font-black uppercase tracking-widest text-slate-400">
+                        Saran dari Riwayat Arsip
+                      </div>
+                      {filteredAlamatSuggestions.map((suggestion, sIdx) => (
+                        <button
+                          key={sIdx}
+                          type="button"
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            setFormData(prev => ({ ...prev, alamatPenerima: suggestion }));
+                            setShowAlamatSuggestions(false);
+                          }}
+                          className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-800 dark:text-slate-200 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 hover:text-emerald-800 dark:hover:text-emerald-300 flex items-center gap-2 transition-colors border-b last:border-b-0 border-slate-100 dark:border-slate-800/60"
+                        >
+                          <Building size={13} className="text-orange-500 shrink-0"/>
+                          <span className="truncate">{suggestion}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-1.5">
@@ -1619,7 +3066,7 @@ export default function App() {
             </div>
 
             <div className="p-6 border-t border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 flex gap-3 mt-auto shrink-0">
-              <button onClick={() => setShowDocForm(false)} disabled={isSubmitting} className="flex-1 py-4 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-2xl font-black uppercase text-[11px] tracking-widest hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+              <button onClick={handleRequestCloseDocForm} disabled={isSubmitting} className="flex-1 py-4 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-2xl font-black uppercase text-[11px] tracking-widest hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                 Batal
               </button>
               <button type="submit" form="docFormAdmin" disabled={isSubmitting} className={`flex-[2] py-4 ${isSubmitting ? 'bg-slate-400 cursor-not-allowed' : 'bg-emerald-800 btn-3d'} text-white rounded-2xl font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-2 transition-all`}>
@@ -1757,6 +3204,428 @@ export default function App() {
                   </div>
                 </div>
               </div>
+
+              <hr className="border-slate-200 dark:border-slate-800"/>
+
+              <div>
+                <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-4 flex items-center gap-2"><ImageIcon size={16}/> Background Website (Foto & Efek)</h3>
+                <div className="space-y-4">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <label className="px-4 py-3 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl text-[11px] font-black uppercase tracking-widest flex items-center gap-2 transition-colors shadow-sm">
+                      <Upload size={15}/> Upload Foto Background
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          try {
+                            const compressedDataUrl = await compressBackgroundImage(file);
+                            setSettingsForm(prev => ({
+                              ...prev,
+                              bgSettings: {
+                                ...DEFAULT_BG_SETTINGS,
+                                ...(prev.bgSettings || {}),
+                                image: compressedDataUrl
+                              }
+                            }));
+                            showToast('Foto background berhasil dimuat! Klik Simpan Pengaturan untuk menerapkan.');
+                          } catch (err) {
+                            console.error('Gagal memproses foto:', err);
+                            showToast('Gagal memproses foto background.', 'error');
+                          } finally {
+                            e.target.value = '';
+                          }
+                        }}
+                      />
+                    </label>
+                    {settingsForm.bgSettings?.image && (
+                      <button
+                        type="button"
+                        onClick={() => setSettingsForm(prev => ({
+                          ...prev,
+                          bgSettings: { ...DEFAULT_BG_SETTINGS }
+                        }))}
+                        className="px-4 py-3 bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400 hover:bg-rose-600 hover:text-white rounded-xl text-[11px] font-black uppercase tracking-widest flex items-center gap-2 transition-colors"
+                      >
+                        <Trash2 size={15}/> Hapus Background
+                      </button>
+                    )}
+                  </div>
+
+                  {settingsForm.bgSettings?.image && (
+                    <div className="space-y-4 p-4 rounded-2xl bg-slate-100/70 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/60">
+                      {/* Preview Foto Background */}
+                      <div className="relative w-full h-36 rounded-xl overflow-hidden border border-slate-300 dark:border-slate-700 bg-slate-900">
+                        <div
+                          className="w-full h-full transition-all duration-200"
+                          style={{
+                            backgroundImage: `url(${settingsForm.bgSettings.image})`,
+                            backgroundSize: settingsForm.bgSettings.size || 'cover',
+                            backgroundPosition: settingsForm.bgSettings.position || 'center',
+                            backgroundRepeat: 'no-repeat',
+                            filter: `blur(${settingsForm.bgSettings.blur || 0}px) brightness(${settingsForm.bgSettings.brightness ?? 100}%)`,
+                            transform: (settingsForm.bgSettings.blur || 0) > 0 ? 'scale(1.06)' : 'scale(1)'
+                          }}
+                        />
+                        <div
+                          className="absolute inset-0 bg-slate-950"
+                          style={{ opacity: (settingsForm.bgSettings.overlay ?? 40) / 100 }}
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <span className="px-3 py-1.5 rounded-lg bg-black/50 backdrop-blur-sm text-white text-[10px] font-black uppercase tracking-widest">
+                            Pratinjau Background
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Slider Efek */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="space-y-1.5">
+                          <div className="flex justify-between text-[10px] font-black uppercase text-slate-700 dark:text-slate-300">
+                            <span>Blur</span>
+                            <span className="text-orange-500">{settingsForm.bgSettings.blur ?? 0}px</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0"
+                            max="20"
+                            value={settingsForm.bgSettings.blur ?? 0}
+                            onChange={e => setSettingsForm(prev => ({
+                              ...prev,
+                              bgSettings: { ...prev.bgSettings, blur: Number(e.target.value) }
+                            }))}
+                            className="w-full accent-orange-500"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <div className="flex justify-between text-[10px] font-black uppercase text-slate-700 dark:text-slate-300">
+                            <span>Kecerahan</span>
+                            <span className="text-orange-500">{settingsForm.bgSettings.brightness ?? 100}%</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="30"
+                            max="150"
+                            value={settingsForm.bgSettings.brightness ?? 100}
+                            onChange={e => setSettingsForm(prev => ({
+                              ...prev,
+                              bgSettings: { ...prev.bgSettings, brightness: Number(e.target.value) }
+                            }))}
+                            className="w-full accent-orange-500"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <div className="flex justify-between text-[10px] font-black uppercase text-slate-700 dark:text-slate-300">
+                            <span>Overlay Gelap</span>
+                            <span className="text-orange-500">{settingsForm.bgSettings.overlay ?? 40}%</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0"
+                            max="85"
+                            value={settingsForm.bgSettings.overlay ?? 40}
+                            onChange={e => setSettingsForm(prev => ({
+                              ...prev,
+                              bgSettings: { ...prev.bgSettings, overlay: Number(e.target.value) }
+                            }))}
+                            className="w-full accent-orange-500"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Ukuran & Posisi */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-black uppercase text-slate-800 dark:text-slate-400 ml-1">Ukuran Tampilan</label>
+                          <select
+                            value={settingsForm.bgSettings.size || 'cover'}
+                            onChange={e => setSettingsForm(prev => ({
+                              ...prev,
+                              bgSettings: { ...prev.bgSettings, size: e.target.value }
+                            }))}
+                            className="w-full px-4 py-3 premium-input rounded-xl text-xs font-bold outline-none transition-all text-slate-900 dark:text-white cursor-pointer"
+                          >
+                            <option value="cover">Penuh (Cover)</option>
+                            <option value="contain">Sesuaikan Utuh (Contain)</option>
+                          </select>
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-black uppercase text-slate-800 dark:text-slate-400 ml-1">Posisi Foto</label>
+                          <select
+                            value={settingsForm.bgSettings.position || 'center'}
+                            onChange={e => setSettingsForm(prev => ({
+                              ...prev,
+                              bgSettings: { ...prev.bgSettings, position: e.target.value }
+                            }))}
+                            className="w-full px-4 py-3 premium-input rounded-xl text-xs font-bold outline-none transition-all text-slate-900 dark:text-white cursor-pointer"
+                          >
+                            <option value="center">Tengah (Center)</option>
+                            <option value="top">Atas (Top)</option>
+                            <option value="bottom">Bawah (Bottom)</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <hr className="border-slate-200 dark:border-slate-800"/>
+
+              {/* PENGATURAN LOGO WEBSITE (KHUSUS SUPER ADMIN & FORMAT PNG) */}
+              <div>
+                <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-4 flex items-center gap-2"><Shield size={16}/> Logo Website (Format PNG)</h3>
+                <div className="space-y-4">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <label className="px-4 py-3 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl text-[11px] font-black uppercase tracking-widest flex items-center gap-2 transition-colors shadow-sm">
+                      <Upload size={15}/> Upload Logo (.PNG)
+                      <input
+                        type="file"
+                        accept=".png,image/png"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          try {
+                            const pngDataUrl = await compressLogoPng(file);
+                            setSettingsForm(prev => ({
+                              ...prev,
+                              logoSettings: {
+                                ...DEFAULT_LOGO_SETTINGS,
+                                ...(prev.logoSettings || {}),
+                                image: pngDataUrl
+                              }
+                            }));
+                            showToast('Logo PNG berhasil dimuat! Sesuaikan tampilan lalu klik Simpan Pengaturan.');
+                          } catch (err) {
+                            if (err.message === 'INVALID_FORMAT') {
+                              showToast('Format file harus PNG (.png)!', 'error');
+                            } else {
+                              console.error('Gagal memproses logo:', err);
+                              showToast('Gagal memproses file logo PNG.', 'error');
+                            }
+                          } finally {
+                            e.target.value = '';
+                          }
+                        }}
+                      />
+                    </label>
+                    {settingsForm.logoSettings?.image && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setSettingsForm(prev => ({
+                            ...prev,
+                            logoSettings: {
+                              ...DEFAULT_LOGO_SETTINGS,
+                              image: prev.logoSettings.image
+                            }
+                          }))}
+                          className="px-4 py-3 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700 rounded-xl text-[11px] font-black uppercase tracking-widest flex items-center gap-2 transition-colors"
+                        >
+                          <RotateCcw size={14}/> Reset Posisi
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSettingsForm(prev => ({
+                            ...prev,
+                            logoSettings: { ...DEFAULT_LOGO_SETTINGS }
+                          }))}
+                          className="px-4 py-3 bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400 hover:bg-rose-600 hover:text-white rounded-xl text-[11px] font-black uppercase tracking-widest flex items-center gap-2 transition-colors"
+                        >
+                          <Trash2 size={15}/> Hapus Logo
+                        </button>
+                      </>
+                    )}
+                  </div>
+                  <p className="text-[10px] font-bold text-slate-500">
+                    * Hanya menerima file berformat <span className="text-emerald-600 dark:text-emerald-400 font-black">.PNG</span> (mendukung latar transparan).
+                  </p>
+
+                  {settingsForm.logoSettings?.image && (
+                    <div className="space-y-5 p-4 rounded-2xl bg-slate-100/70 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/60">
+                      {/* Tampilan Pratinjau Langsung (Header & Hero) */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="p-4 rounded-xl border border-slate-300 dark:border-slate-700 bg-white/80 dark:bg-slate-900/80 flex flex-col items-center justify-center gap-3 min-h-[120px]">
+                          <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Pratinjau Header</span>
+                          <div className="px-3 py-2.5 rounded-2xl bg-white dark:bg-slate-800 border border-emerald-500/20 shadow-md flex items-center justify-center">
+                            <div
+                              className="overflow-hidden flex items-center justify-center shrink-0"
+                              style={{
+                                width: `${settingsForm.logoSettings.headerSize ?? 32}px`,
+                                height: `${settingsForm.logoSettings.headerSize ?? 32}px`,
+                                borderRadius: `${settingsForm.logoSettings.radius ?? 12}%`
+                              }}
+                            >
+                              <img
+                                src={settingsForm.logoSettings.image}
+                                alt="Preview Header"
+                                className="w-full h-full object-contain pointer-events-none select-none"
+                                style={{
+                                  transform: `translate(${settingsForm.logoSettings.offsetX ?? 0}px, ${settingsForm.logoSettings.offsetY ?? 0}px) scale(${(settingsForm.logoSettings.scale ?? 100) / 100})`
+                                }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="p-4 rounded-xl border border-slate-300 dark:border-slate-700 bg-white/80 dark:bg-slate-900/80 flex flex-col items-center justify-center gap-2 min-h-[120px]">
+                          <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Pratinjau Hero</span>
+                          {settingsForm.logoSettings.showInHero !== false ? (
+                            <div
+                              className="overflow-hidden flex items-center justify-center"
+                              style={{
+                                width: `${Math.min(settingsForm.logoSettings.heroSize ?? 84, 110)}px`,
+                                height: `${Math.min(settingsForm.logoSettings.heroSize ?? 84, 110)}px`,
+                                borderRadius: `${settingsForm.logoSettings.radius ?? 12}%`
+                              }}
+                            >
+                              <img
+                                src={settingsForm.logoSettings.image}
+                                alt="Preview Hero"
+                                className="w-full h-full object-contain pointer-events-none select-none"
+                                style={{
+                                  transform: `translate(${settingsForm.logoSettings.offsetX ?? 0}px, ${settingsForm.logoSettings.offsetY ?? 0}px) scale(${(settingsForm.logoSettings.scale ?? 100) / 100})`
+                                }}
+                              />
+                            </div>
+                          ) : (
+                            <span className="text-[11px] font-bold text-slate-400 italic">Disembunyikan di Hero</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Slider Penyesuaian Logo */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="space-y-1.5">
+                          <div className="flex justify-between text-[10px] font-black uppercase text-slate-700 dark:text-slate-300">
+                            <span>Ukuran Header</span>
+                            <span className="text-orange-500">{settingsForm.logoSettings.headerSize ?? 32}px</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="20"
+                            max="56"
+                            value={settingsForm.logoSettings.headerSize ?? 32}
+                            onChange={e => setSettingsForm(prev => ({
+                              ...prev,
+                              logoSettings: { ...prev.logoSettings, headerSize: Number(e.target.value) }
+                            }))}
+                            className="w-full accent-orange-500"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <div className="flex justify-between text-[10px] font-black uppercase text-slate-700 dark:text-slate-300">
+                            <span>Ukuran Hero</span>
+                            <span className="text-orange-500">{settingsForm.logoSettings.heroSize ?? 84}px</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="48"
+                            max="160"
+                            value={settingsForm.logoSettings.heroSize ?? 84}
+                            onChange={e => setSettingsForm(prev => ({
+                              ...prev,
+                              logoSettings: { ...prev.logoSettings, heroSize: Number(e.target.value) }
+                            }))}
+                            className="w-full accent-orange-500"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <div className="flex justify-between text-[10px] font-black uppercase text-slate-700 dark:text-slate-300">
+                            <span>Zoom / Skala</span>
+                            <span className="text-orange-500">{settingsForm.logoSettings.scale ?? 100}%</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="50"
+                            max="200"
+                            value={settingsForm.logoSettings.scale ?? 100}
+                            onChange={e => setSettingsForm(prev => ({
+                              ...prev,
+                              logoSettings: { ...prev.logoSettings, scale: Number(e.target.value) }
+                            }))}
+                            className="w-full accent-orange-500"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <div className="flex justify-between text-[10px] font-black uppercase text-slate-700 dark:text-slate-300">
+                            <span>Geser Horizontal (X)</span>
+                            <span className="text-orange-500">{settingsForm.logoSettings.offsetX ?? 0}px</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="-30"
+                            max="30"
+                            value={settingsForm.logoSettings.offsetX ?? 0}
+                            onChange={e => setSettingsForm(prev => ({
+                              ...prev,
+                              logoSettings: { ...prev.logoSettings, offsetX: Number(e.target.value) }
+                            }))}
+                            className="w-full accent-orange-500"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <div className="flex justify-between text-[10px] font-black uppercase text-slate-700 dark:text-slate-300">
+                            <span>Geser Vertikal (Y)</span>
+                            <span className="text-orange-500">{settingsForm.logoSettings.offsetY ?? 0}px</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="-30"
+                            max="30"
+                            value={settingsForm.logoSettings.offsetY ?? 0}
+                            onChange={e => setSettingsForm(prev => ({
+                              ...prev,
+                              logoSettings: { ...prev.logoSettings, offsetY: Number(e.target.value) }
+                            }))}
+                            className="w-full accent-orange-500"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <div className="flex justify-between text-[10px] font-black uppercase text-slate-700 dark:text-slate-300">
+                            <span>Kelengkungan Sudut</span>
+                            <span className="text-orange-500">{settingsForm.logoSettings.radius ?? 12}%</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0"
+                            max="50"
+                            value={settingsForm.logoSettings.radius ?? 12}
+                            onChange={e => setSettingsForm(prev => ({
+                              ...prev,
+                              logoSettings: { ...prev.logoSettings, radius: Number(e.target.value) }
+                            }))}
+                            className="w-full accent-orange-500"
+                          />
+                        </div>
+                      </div>
+
+                      <label className="flex items-center gap-2.5 pt-1 text-xs font-bold text-slate-700 dark:text-slate-300 select-none">
+                        <input
+                          type="checkbox"
+                          checked={settingsForm.logoSettings.showInHero !== false}
+                          onChange={e => setSettingsForm(prev => ({
+                            ...prev,
+                            logoSettings: { ...prev.logoSettings, showInHero: e.target.checked }
+                          }))}
+                          className="w-4 h-4 accent-emerald-600 rounded"
+                        />
+                        <span>Tampilkan Logo di Bagian Utama (Hero)</span>
+                      </label>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
 
             <div className="p-6 border-t border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 flex gap-3 mt-auto shrink-0">
@@ -1773,7 +3642,9 @@ export default function App() {
                   startAgendaMasuk: Number(settingsForm.startAgendaMasuk) || 1,
                   startAgendaKeluar: Number(settingsForm.startAgendaKeluar) || 1,
                   agendaModeMasuk: settingsForm.agendaModeMasuk || 'auto',
-                  agendaModeKeluar: settingsForm.agendaModeKeluar || 'auto'
+                  agendaModeKeluar: settingsForm.agendaModeKeluar || 'auto',
+                  bgSettings: settingsForm.bgSettings ? { ...DEFAULT_BG_SETTINGS, ...settingsForm.bgSettings } : DEFAULT_BG_SETTINGS,
+                  logoSettings: settingsForm.logoSettings ? { ...DEFAULT_LOGO_SETTINGS, ...settingsForm.logoSettings } : DEFAULT_LOGO_SETTINGS
                 };
                 
                 if (db && fbUser) {
@@ -1793,10 +3664,16 @@ export default function App() {
                 setStartAgendaKeluar(newConfig.startAgendaKeluar);
                 setAgendaModeMasuk(newConfig.agendaModeMasuk);
                 setAgendaModeKeluar(newConfig.agendaModeKeluar);
+                setBgSettings(newConfig.bgSettings);
+                setLogoSettings(newConfig.logoSettings);
 
                 localStorage.setItem('laskarAdminCreds', JSON.stringify({ username: newConfig.adminUsername, password: newConfig.adminPassword }));
                 localStorage.setItem('laskarSuperAdminCreds', JSON.stringify({ username: newConfig.superUsername, password: newConfig.superPassword }));
                 localStorage.setItem('laskarAutoLogout', newConfig.autoLogoutMinutes.toString());
+                try {
+                  localStorage.setItem('laskarBgSettings', JSON.stringify(newConfig.bgSettings));
+                  localStorage.setItem('laskarLogoSettings', JSON.stringify(newConfig.logoSettings));
+                } catch (e) { /* abaikan jika kuota localStorage penuh */ }
                 
                 showToast('Pengaturan Berhasil Disimpan ke Database!');
                 setShowSettings(false);
