@@ -666,6 +666,17 @@ export default function App() {
 
   useEffect(() => {
     document.documentElement.classList.add('dark');
+
+    // Pastikan meta viewport selalu aktif agar browser HP/tablet tidak merender tampilan desktop
+    if (typeof document !== 'undefined') {
+      let viewportMeta = document.querySelector('meta[name="viewport"]');
+      if (!viewportMeta) {
+        viewportMeta = document.createElement('meta');
+        viewportMeta.name = 'viewport';
+        document.head.appendChild(viewportMeta);
+      }
+      viewportMeta.content = 'width=device-width, initial-scale=1.0, viewport-fit=cover';
+    }
   }, []);
 
   // Perbarui favicon tab browser otomatis saat logo PNG aktif
@@ -1688,7 +1699,7 @@ export default function App() {
   };
 
   return (
-    <div className={`min-h-screen ${bgSettings.image ? 'bg-transparent has-custom-bg' : 'bg-slate-100 dark:bg-slate-950'} text-slate-950 dark:text-slate-100 transition-colors duration-500 font-sans selection:bg-emerald-800/30 overflow-x-hidden relative flex justify-center pb-24`}>
+    <div className={`min-h-screen w-full max-w-[100vw] block ${bgSettings.image ? 'bg-transparent has-custom-bg' : 'bg-slate-100 dark:bg-slate-950'} text-slate-950 dark:text-slate-100 transition-colors duration-500 font-sans selection:bg-emerald-800/30 overflow-x-hidden relative pb-24`}>
       {/* CUSTOM BACKGROUND PHOTO LAYER */}
       {bgSettings.image && (
         <div className="fixed inset-0 -z-20 bg-slate-100 dark:bg-slate-950 pointer-events-none overflow-hidden">
@@ -1712,7 +1723,17 @@ export default function App() {
 
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@200;400;600;800&display=swap');
-        * { font-family: 'Plus Jakarta Sans', sans-serif; }
+        html, body, #root {
+          width: 100% !important;
+          max-width: 100vw !important;
+          min-width: 0 !important;
+          overflow-x: hidden !important;
+          margin: 0;
+          padding: 0;
+          display: block !important;
+          -webkit-text-size-adjust: 100%;
+        }
+        * { font-family: 'Plus Jakarta Sans', sans-serif; box-sizing: border-box; }
         
         button, select, label[for], input[type="checkbox"], input[type="file"] { cursor: pointer !important; }
         
@@ -1899,7 +1920,7 @@ export default function App() {
       )}
 
       {/* HEADER GLOBAL */}
-      <header className="fixed top-0 left-1/2 -translate-x-1/2 z-50 px-3 sm:px-6 py-3 sm:py-4 flex justify-between items-center pointer-events-none transition-all duration-500 w-full max-w-full">
+      <header className="fixed top-0 left-0 right-0 z-50 px-3 sm:px-6 py-3 sm:py-4 flex justify-between items-center pointer-events-none transition-all duration-500 w-full">
         <div className="glass-card px-2.5 py-2 sm:px-3 sm:py-2.5 rounded-2xl pointer-events-auto flex items-center gap-2 shadow-lg hover:shadow-xl transition-shadow">
           <div className="flex items-center gap-1.5">
             {adminUser?.role === 'superadmin' && (
@@ -1972,7 +1993,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className="pt-20 sm:pt-24 px-3 sm:px-6 mx-auto relative z-10 flex flex-col transition-all duration-500 w-full max-w-7xl">
+      <main className="pt-20 sm:pt-24 px-3 sm:px-6 mx-auto relative z-10 flex flex-col transition-all duration-500 w-full max-w-7xl min-w-0">
         
         {/* HERO SECTION (DIPADATKAN AGAR KONTEN UTAMA LANGSUNG TERLIHAT) */}
         <div className="text-center mb-6 sm:mb-8 gsap-hero-trigger px-1">
@@ -2165,12 +2186,12 @@ export default function App() {
               <CalendarDays size={14} className="text-emerald-600 dark:text-emerald-400 shrink-0"/>
               <span>Rentang Tanggal:</span>
             </div>
-            <div className="grid grid-cols-[1fr_auto_1fr] sm:flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
+            <div className="flex flex-col min-[420px]:grid min-[420px]:grid-cols-[1fr_auto_1fr] sm:flex sm:flex-row items-stretch sm:items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
               <input
                 type="date"
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
-                className="w-full sm:w-auto min-w-0 px-2.5 sm:px-3.5 py-2 bg-white/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl text-[11px] sm:text-xs font-bold outline-none focus:border-emerald-700 text-slate-900 dark:text-white"
+                className="w-full sm:w-auto min-w-0 max-w-full px-2.5 sm:px-3.5 py-2 bg-white/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl text-[11px] sm:text-xs font-bold outline-none focus:border-emerald-700 text-slate-900 dark:text-white"
                 title="Dari Tanggal"
               />
               <span className="text-[10px] font-black uppercase text-slate-400 text-center">s/d</span>
@@ -2178,7 +2199,7 @@ export default function App() {
                 type="date"
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}
-                className="w-full sm:w-auto min-w-0 px-2.5 sm:px-3.5 py-2 bg-white/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl text-[11px] sm:text-xs font-bold outline-none focus:border-emerald-700 text-slate-900 dark:text-white"
+                className="w-full sm:w-auto min-w-0 max-w-full px-2.5 sm:px-3.5 py-2 bg-white/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl text-[11px] sm:text-xs font-bold outline-none focus:border-emerald-700 text-slate-900 dark:text-white"
                 title="Sampai Tanggal"
               />
             </div>
