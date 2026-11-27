@@ -1773,18 +1773,23 @@ export default function App() {
           background: #0f172a;
         }
 
-        /* Motion Hover Card */
+        /* Motion Hover Card (khusus perangkat pointer agar nyaman di layar sentuh) */
         .sigap-doc-card {
           transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.3s ease;
           will-change: transform, opacity;
         }
-        .sigap-doc-card:hover {
-          transform: translateY(-8px) scale(1.015);
-          box-shadow: 0 25px 40px -12px rgba(6, 95, 70, 0.22);
+        @media (hover: hover) {
+          .sigap-doc-card:hover {
+            transform: translateY(-8px) scale(1.015);
+            box-shadow: 0 25px 40px -12px rgba(6, 95, 70, 0.22);
+          }
+          .dark .sigap-doc-card:hover {
+            box-shadow: 0 25px 40px -12px rgba(16, 185, 129, 0.18);
+          }
         }
-        .dark .sigap-doc-card:hover {
-          box-shadow: 0 25px 40px -12px rgba(16, 185, 129, 0.18);
-        }
+
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: transparent; }
@@ -1799,14 +1804,14 @@ export default function App() {
 
       {/* GLOBAL TOAST */}
       {toast && (
-        <div className={`fixed top-6 left-1/2 -translate-x-1/2 z-[300] px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-top-10 fade-in duration-300 backdrop-blur-md border max-w-[92vw] ${toast.type === 'error' ? 'bg-rose-600/95 border-rose-500 text-white' : 'bg-emerald-600/95 border-emerald-500 text-white'}`}>
-          {toast.type === 'error' ? <AlertCircle size={22} className="shrink-0"/> : <CheckCircle2 size={22} className="shrink-0"/>}
-          <span className="text-xs font-bold uppercase tracking-widest text-white">{toast.message}</span>
+        <div className={`fixed top-4 sm:top-6 left-1/2 -translate-x-1/2 z-[300] px-4 py-3 sm:px-6 sm:py-4 rounded-2xl shadow-2xl flex flex-wrap sm:flex-nowrap items-center justify-center sm:justify-start gap-2.5 sm:gap-3 animate-in slide-in-from-top-10 fade-in duration-300 backdrop-blur-md border w-[calc(100vw-1.5rem)] sm:w-auto max-w-lg ${toast.type === 'error' ? 'bg-rose-600/95 border-rose-500 text-white' : 'bg-emerald-600/95 border-emerald-500 text-white'}`}>
+          {toast.type === 'error' ? <AlertCircle size={20} className="shrink-0"/> : <CheckCircle2 size={20} className="shrink-0"/>}
+          <span className="text-[11px] sm:text-xs font-bold uppercase tracking-wider sm:tracking-widest text-white text-center sm:text-left">{toast.message}</span>
           {toast.copyText && (
             <button
               type="button"
               onClick={(e) => handleCopyText(toast.copyText, 'toast-copy', e)}
-              className="ml-2 px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 shrink-0 transition-colors"
+              className="sm:ml-2 px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 shrink-0 transition-colors"
             >
               <Copy size={13}/> Salin Nomor
             </button>
@@ -1816,7 +1821,7 @@ export default function App() {
 
       {/* FLOAT BULK ACTION BAR UNTUK SUPERADMIN */}
       {isSelectionMode && adminUser?.role === 'superadmin' && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] flex flex-wrap items-center justify-center gap-2 sm:gap-3 bg-slate-900/95 backdrop-blur-md text-white px-5 py-3.5 rounded-3xl sm:rounded-full shadow-2xl border border-slate-700 animate-in slide-in-from-bottom-10 fade-in duration-300 max-w-[95vw]">
+        <div className="fixed bottom-3 sm:bottom-6 left-1/2 -translate-x-1/2 z-[200] flex flex-wrap items-center justify-center gap-2 sm:gap-3 bg-slate-900/95 backdrop-blur-md text-white px-3.5 py-3 sm:px-5 sm:py-3.5 rounded-2xl sm:rounded-full shadow-2xl border border-slate-700 animate-in slide-in-from-bottom-10 fade-in duration-300 w-[calc(100vw-1.5rem)] sm:w-auto max-w-[95vw]">
            <span className="text-xs sm:text-sm font-black whitespace-nowrap"><span className="text-orange-500">{selectedItemsForAction.length}</span> Terpilih</span>
            <div className="w-px h-5 bg-slate-700 hidden sm:block"></div>
            <button
@@ -1840,7 +1845,7 @@ export default function App() {
                  type="button"
                  onClick={handleBulkRestore}
                  disabled={selectedItemsForAction.length === 0}
-                 className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 transition-all"
+                 className="px-3.5 sm:px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 transition-all"
                >
                  <RotateCcw size={13}/> Pulihkan
                </button>
@@ -1848,7 +1853,7 @@ export default function App() {
                  type="button"
                  onClick={handleBulkPermanentDelete}
                  disabled={selectedItemsForAction.length === 0}
-                 className="px-4 py-2 bg-rose-600 hover:bg-rose-500 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 transition-all"
+                 className="px-3.5 sm:px-4 py-2 bg-rose-600 hover:bg-rose-500 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 transition-all"
                >
                  <Trash2 size={13}/> Hapus Permanen
                </button>
@@ -1859,7 +1864,7 @@ export default function App() {
                  type="button"
                  onClick={() => handleExportExcel(selectedDocsList)}
                  disabled={selectedItemsForAction.length === 0}
-                 className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 transition-all"
+                 className="px-3 sm:px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 transition-all"
                  title="Ekspor Terpilih ke Excel"
                >
                  <Table size={13}/> Excel
@@ -1868,7 +1873,7 @@ export default function App() {
                  type="button"
                  onClick={() => handleExportWord(selectedDocsList)}
                  disabled={selectedItemsForAction.length === 0}
-                 className="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 transition-all"
+                 className="px-3 sm:px-3.5 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 transition-all"
                  title="Ekspor Terpilih ke Word"
                >
                  <FileText size={13}/> Word
@@ -1877,12 +1882,12 @@ export default function App() {
                  type="button"
                  onClick={() => handlePrintReport(selectedDocsList)}
                  disabled={selectedItemsForAction.length === 0}
-                 className="px-3.5 py-2 bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 disabled:text-slate-500 text-white rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 transition-all"
+                 className="px-3 sm:px-3.5 py-2 bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 disabled:text-slate-500 text-white rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 transition-all"
                  title="Cetak Terpilih"
                >
                  <Printer size={13}/> Print
                </button>
-               <button onClick={handleBulkDelete} disabled={selectedItemsForAction.length === 0} className="px-4 py-2 bg-rose-600 hover:bg-rose-500 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 transition-all">
+               <button onClick={handleBulkDelete} disabled={selectedItemsForAction.length === 0} className="px-3.5 sm:px-4 py-2 bg-rose-600 hover:bg-rose-500 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 transition-all">
                  <Trash2 size={13}/> Ke Sampah
                </button>
              </>
@@ -1894,8 +1899,8 @@ export default function App() {
       )}
 
       {/* HEADER GLOBAL */}
-      <header className="fixed top-0 left-1/2 -translate-x-1/2 z-50 px-6 py-4 flex justify-between items-center pointer-events-none transition-all duration-500 w-full max-w-full">
-        <div className="glass-card px-3 py-2.5 rounded-2xl pointer-events-auto flex items-center gap-2 shadow-lg hover:shadow-xl transition-shadow">
+      <header className="fixed top-0 left-1/2 -translate-x-1/2 z-50 px-3 sm:px-6 py-3 sm:py-4 flex justify-between items-center pointer-events-none transition-all duration-500 w-full max-w-full">
+        <div className="glass-card px-2.5 py-2 sm:px-3 sm:py-2.5 rounded-2xl pointer-events-auto flex items-center gap-2 shadow-lg hover:shadow-xl transition-shadow">
           <div className="flex items-center gap-1.5">
             {adminUser?.role === 'superadmin' && (
               <button onClick={handleOpenSettings} className="p-1.5 rounded-xl bg-orange-100 dark:bg-orange-800/40 hover:bg-orange-200 transition-all" title="Pengaturan Sistem">
@@ -1940,10 +1945,10 @@ export default function App() {
           </div>
         </div>
         
-        <div className="flex gap-2 pointer-events-auto items-center">
+        <div className="flex gap-1.5 sm:gap-2 pointer-events-auto items-center">
           {/* Indikator Status Koneksi (Online/Offline) */}
           <div
-            className={`flex items-center gap-1.5 px-3 py-2.5 glass-card rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm border ${
+            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-2 sm:py-2.5 glass-card rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm border ${
               isOnline && (!db || fbUser)
                 ? 'text-emerald-700 dark:text-emerald-400 border-emerald-300/60 dark:border-emerald-700/50'
                 : 'text-rose-600 dark:text-rose-400 border-rose-300/60 dark:border-rose-700/50'
@@ -1960,21 +1965,21 @@ export default function App() {
             <span className="hidden md:inline">{isOnline && (!db || fbUser) ? 'Online' : 'Offline'}</span>
           </div>
 
-          <div className="hidden sm:flex items-center gap-2 px-4 py-2.5 glass-card rounded-full text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 shadow-sm">
-            <Clock size={14} className="text-orange-500" />
-            {formatLiveTime(currentTime)}
+          <div className="hidden sm:flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 glass-card rounded-full text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 shadow-sm">
+            <Clock size={14} className="text-orange-500 shrink-0" />
+            <span className="truncate max-w-[200px] md:max-w-none">{formatLiveTime(currentTime)}</span>
           </div>
         </div>
       </header>
 
-      <main className="pt-24 px-6 mx-auto relative z-10 flex flex-col transition-all duration-500 w-full max-w-7xl">
+      <main className="pt-20 sm:pt-24 px-3 sm:px-6 mx-auto relative z-10 flex flex-col transition-all duration-500 w-full max-w-7xl">
         
         {/* HERO SECTION (DIPADATKAN AGAR KONTEN UTAMA LANGSUNG TERLIHAT) */}
-        <div className="text-center mb-8 gsap-hero-trigger">
+        <div className="text-center mb-6 sm:mb-8 gsap-hero-trigger px-1">
           {logoSettings.image && logoSettings.showInHero !== false && (
-            <div className="flex justify-center mb-4">
+            <div className="flex justify-center mb-3 sm:mb-4">
               <div
-                className="overflow-hidden flex items-center justify-center"
+                className="overflow-hidden flex items-center justify-center max-w-[32vw] max-h-[32vw]"
                 style={{
                   width: `${logoSettings.heroSize ?? 84}px`,
                   height: `${logoSettings.heroSize ?? 84}px`,
@@ -1992,62 +1997,62 @@ export default function App() {
               </div>
             </div>
           )}
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-emerald-50 dark:bg-emerald-800/20 text-emerald-800 dark:text-emerald-400 rounded-full text-[10px] font-black uppercase tracking-widest border border-emerald-200/50 dark:border-emerald-700/30 shadow-sm mb-3">
-            <div className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></div>
+          <div className="inline-flex items-center gap-2 px-3.5 sm:px-4 py-1.5 bg-emerald-50 dark:bg-emerald-800/20 text-emerald-800 dark:text-emerald-400 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-widest border border-emerald-200/50 dark:border-emerald-700/30 shadow-sm mb-3">
+            <div className="relative flex h-2 w-2 shrink-0"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></div>
             Layanan Administrasi Pemasyarakatan
           </div>
-          <h1 className="font-black tracking-tighter leading-[1.05] text-slate-900 dark:text-white mb-2 transition-all duration-500 text-4xl md:text-5xl">
+          <h1 className="font-black tracking-tighter leading-[1.05] text-slate-900 dark:text-white mb-2 transition-all duration-500 text-3xl sm:text-4xl md:text-5xl">
             <span className="inline-block gsap-word">SIGAP</span>
           </h1>
-          <h2 className="font-black tracking-widest text-emerald-800 dark:text-emerald-400 mb-2 uppercase transition-all duration-500 text-xs md:text-sm">
+          <h2 className="font-black tracking-wider sm:tracking-widest text-emerald-800 dark:text-emerald-400 mb-2 uppercase transition-all duration-500 text-[11px] sm:text-xs md:text-sm leading-relaxed">
             {'Sistem Informasi Gabungan Arsip Pemasyarakatan'.split(' ').map((word, i) => (
-              <span key={i} className="inline-block gsap-word mr-2">{word}</span>
+              <span key={i} className="inline-block gsap-word mr-1.5 sm:mr-2">{word}</span>
             ))}
           </h2>
-          <p className="max-w-2xl mx-auto font-semibold text-slate-600 dark:text-slate-400 leading-relaxed transition-all duration-500 text-xs md:text-sm">
+          <p className="max-w-2xl mx-auto font-semibold text-slate-600 dark:text-slate-400 leading-relaxed transition-all duration-500 text-xs sm:text-sm">
             Sistem pengarsipan dan manajemen persuratan (Surat Masuk & Surat Keluar) Tata Usaha Lapas Kelas IIB Kalabahi.
           </p>
         </div>
 
         {/* DASHBOARD STATISTIK */}
-        <div className="max-w-5xl mx-auto mb-6 animate-in fade-in zoom-in duration-500 w-full">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="glass-card p-5 md:p-6 rounded-[2rem] shadow-xl border border-emerald-500/20 relative overflow-hidden flex items-center gap-5 group hover:shadow-2xl hover:border-emerald-500/40 transition-all">
-              <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-900/40 rounded-full flex items-center justify-center shrink-0 border border-emerald-200 dark:border-emerald-800/50 group-hover:scale-110 transition-transform">
-                <Inbox size={26} className="text-emerald-700 dark:text-emerald-400" />
+        <div className="max-w-5xl mx-auto mb-5 sm:mb-6 animate-in fade-in zoom-in duration-500 w-full">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+            <div className="glass-card p-4 sm:p-5 md:p-6 rounded-3xl sm:rounded-[2rem] shadow-xl border border-emerald-500/20 relative overflow-hidden flex items-center gap-4 sm:gap-5 group hover:shadow-2xl hover:border-emerald-500/40 transition-all">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 bg-emerald-100 dark:bg-emerald-900/40 rounded-full flex items-center justify-center shrink-0 border border-emerald-200 dark:border-emerald-800/50 group-hover:scale-110 transition-transform">
+                <Inbox size={24} className="text-emerald-700 dark:text-emerald-400" />
               </div>
-              <div className="text-left relative z-10 flex-1">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">Total Surat Masuk</p>
+              <div className="text-left relative z-10 flex-1 min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1 truncate">Total Surat Masuk</p>
                 <div className="flex items-baseline gap-2">
-                  <p className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-br from-emerald-800 to-emerald-400 leading-none">
+                  <p className="text-3xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-br from-emerald-800 to-emerald-400 leading-none">
                     {activeDocuments.filter(d => d.jenisSurat === 'Surat Masuk').length}
                   </p>
                 </div>
               </div>
             </div>
             
-            <div className="glass-card p-5 md:p-6 rounded-[2rem] shadow-xl border border-orange-500/20 relative overflow-hidden flex items-center gap-5 group hover:shadow-2xl hover:border-orange-500/40 transition-all">
-              <div className="w-16 h-16 bg-orange-100 dark:bg-orange-900/40 rounded-full flex items-center justify-center shrink-0 border border-orange-200 dark:border-orange-800/50 group-hover:scale-110 transition-transform">
-                <Send size={26} className="text-orange-600 dark:text-orange-400" />
+            <div className="glass-card p-4 sm:p-5 md:p-6 rounded-3xl sm:rounded-[2rem] shadow-xl border border-orange-500/20 relative overflow-hidden flex items-center gap-4 sm:gap-5 group hover:shadow-2xl hover:border-orange-500/40 transition-all">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 bg-orange-100 dark:bg-orange-900/40 rounded-full flex items-center justify-center shrink-0 border border-orange-200 dark:border-orange-800/50 group-hover:scale-110 transition-transform">
+                <Send size={24} className="text-orange-600 dark:text-orange-400" />
               </div>
-              <div className="text-left relative z-10 flex-1">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">Total Surat Keluar</p>
+              <div className="text-left relative z-10 flex-1 min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1 truncate">Total Surat Keluar</p>
                 <div className="flex items-baseline gap-2">
-                  <p className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-br from-orange-600 to-orange-400 leading-none">
+                  <p className="text-3xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-br from-orange-600 to-orange-400 leading-none">
                     {activeDocuments.filter(d => d.jenisSurat === 'Surat Keluar').length}
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="glass-card p-5 md:p-6 rounded-[2rem] shadow-xl border border-blue-500/20 relative overflow-hidden flex items-center gap-5 group hover:shadow-2xl hover:border-blue-500/40 transition-all">
-              <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/40 rounded-full flex items-center justify-center shrink-0 border border-blue-200 dark:border-blue-800/50 group-hover:scale-110 transition-transform">
-                <FileText size={26} className="text-blue-600 dark:text-blue-400" />
+            <div className="sm:col-span-2 lg:col-span-1 glass-card p-4 sm:p-5 md:p-6 rounded-3xl sm:rounded-[2rem] shadow-xl border border-blue-500/20 relative overflow-hidden flex items-center gap-4 sm:gap-5 group hover:shadow-2xl hover:border-blue-500/40 transition-all">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 bg-blue-100 dark:bg-blue-900/40 rounded-full flex items-center justify-center shrink-0 border border-blue-200 dark:border-blue-800/50 group-hover:scale-110 transition-transform">
+                <FileText size={24} className="text-blue-600 dark:text-blue-400" />
               </div>
-              <div className="text-left relative z-10 flex-1">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">Total Arsip Keseluruhan</p>
+              <div className="text-left relative z-10 flex-1 min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1 truncate">Total Arsip Keseluruhan</p>
                 <div className="flex items-baseline gap-2">
-                  <p className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-br from-blue-600 to-blue-400 leading-none">
+                  <p className="text-3xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-br from-blue-600 to-blue-400 leading-none">
                     {activeDocuments.length}
                   </p>
                 </div>
@@ -2057,17 +2062,17 @@ export default function App() {
         </div>
 
         {/* SEARCH, FILTER, RENTANG TANGGAL, SORTING & VIEW TOGGLE BAR */}
-        <div className="max-w-5xl mx-auto glass-card p-4 rounded-[2rem] flex flex-col gap-3 shadow-xl border border-white/40 dark:border-slate-700/50 w-full">
-          <div className="flex gap-3 flex-col md:flex-row">
+        <div className="max-w-5xl mx-auto glass-card p-3 sm:p-4 rounded-3xl sm:rounded-[2rem] flex flex-col gap-3 shadow-xl border border-white/40 dark:border-slate-700/50 w-full">
+          <div className="flex gap-2.5 sm:gap-3 flex-col lg:flex-row">
             <div className="relative flex-1">
-              <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <Search className="absolute left-4 sm:left-5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
               <input 
                 ref={searchInputRef}
                 type="text" 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Cari No Berkas, Perihal, Alamat... (Tekan /)" 
-                className="w-full pl-12 pr-14 py-3.5 bg-white/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl text-sm font-bold outline-none focus:ring-4 focus:ring-emerald-800/20 focus:border-emerald-800 transition-all text-slate-900 dark:text-white"
+                placeholder="Cari No Berkas, Perihal, Alamat..." 
+                className="w-full pl-11 sm:pl-12 pr-12 sm:pr-14 py-3 sm:py-3.5 bg-white/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs sm:text-sm font-bold outline-none focus:ring-4 focus:ring-emerald-800/20 focus:border-emerald-800 transition-all text-slate-900 dark:text-white"
               />
               {searchTerm ? (
                 <button
@@ -2083,30 +2088,30 @@ export default function App() {
               )}
             </div>
             
-            <div className="flex gap-2.5 flex-wrap sm:flex-nowrap">
+            <div className="grid grid-cols-2 sm:flex sm:flex-wrap lg:flex-nowrap gap-2 sm:gap-2.5 w-full lg:w-auto">
               {/* Filter Jenis Surat */}
-              <div className="relative shrink-0 sm:w-36">
-                <Filter className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+              <div className="relative w-full sm:flex-1 lg:flex-none lg:w-36">
+                <Filter className="absolute left-3 sm:left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
                 <select 
                   value={filterType}
                   onChange={(e) => setFilterType(e.target.value)}
-                  className="w-full pl-9 pr-8 py-3.5 bg-white/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl text-[11px] font-bold uppercase tracking-wide outline-none appearance-none cursor-pointer transition-all text-slate-900 dark:text-white"
+                  className="w-full pl-8 sm:pl-9 pr-7 sm:pr-8 py-3 sm:py-3.5 bg-white/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl text-[10px] sm:text-[11px] font-bold uppercase tracking-wide outline-none appearance-none cursor-pointer transition-all text-slate-900 dark:text-white"
                   title="Filter Jenis Surat"
                 >
                   <option value="Semua">Semua Surat</option>
                   <option value="Surat Masuk">Surat Masuk</option>
                   <option value="Surat Keluar">Surat Keluar</option>
                 </select>
-                <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none rotate-90" size={14}/>
+                <ChevronRight className="absolute right-2.5 sm:right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none rotate-90" size={14}/>
               </div>
 
               {/* Filter Cepat Berdasarkan Tahun */}
-              <div className="relative shrink-0 sm:w-36">
-                <CalendarDays className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+              <div className="relative w-full sm:flex-1 lg:flex-none lg:w-36">
+                <CalendarDays className="absolute left-3 sm:left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
                 <select 
                   value={filterYear}
                   onChange={(e) => setFilterYear(e.target.value)}
-                  className="w-full pl-9 pr-8 py-3.5 bg-white/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl text-[11px] font-bold uppercase tracking-wide outline-none appearance-none cursor-pointer transition-all text-slate-900 dark:text-white"
+                  className="w-full pl-8 sm:pl-9 pr-7 sm:pr-8 py-3 sm:py-3.5 bg-white/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl text-[10px] sm:text-[11px] font-bold uppercase tracking-wide outline-none appearance-none cursor-pointer transition-all text-slate-900 dark:text-white"
                   title="Filter Berdasarkan Tahun"
                 >
                   <option value="Semua">Semua Tahun</option>
@@ -2114,30 +2119,30 @@ export default function App() {
                     <option key={yr} value={yr}>Tahun {yr}</option>
                   ))}
                 </select>
-                <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none rotate-90" size={14}/>
+                <ChevronRight className="absolute right-2.5 sm:right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none rotate-90" size={14}/>
               </div>
 
               {/* Urutkan */}
-              <div className="relative shrink-0 sm:w-44">
-                <ArrowUpDown className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+              <div className="relative w-full sm:flex-1 lg:flex-none lg:w-36">
+                <ArrowUpDown className="absolute left-3 sm:left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
                 <select 
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
-                  className="w-full pl-9 pr-8 py-3.5 bg-white/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl text-[11px] font-bold uppercase tracking-wide outline-none appearance-none cursor-pointer transition-all text-slate-900 dark:text-white"
+                  className="w-full pl-8 sm:pl-9 pr-7 sm:pr-8 py-3 sm:py-3.5 bg-white/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl text-[10px] sm:text-[11px] font-bold uppercase tracking-wide outline-none appearance-none cursor-pointer transition-all text-slate-900 dark:text-white"
                   title="Urutkan Arsip"
                 >
                   <option value="Nomor Urut Terbaru">Terbaru</option>
                   <option value="Nomor Urut Terlama">Terlama</option>
                 </select>
-                <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none rotate-90" size={14}/>
+                <ChevronRight className="absolute right-2.5 sm:right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none rotate-90" size={14}/>
               </div>
 
               {/* Toggle Grid / Table View */}
-              <div className="flex items-center p-1 bg-white/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl shrink-0 self-start sm:self-auto">
+              <div className="grid grid-cols-2 sm:flex items-center p-1 bg-white/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl shrink-0">
                 <button
                   type="button"
                   onClick={() => setViewMode('grid')}
-                  className={`p-2.5 rounded-xl transition-all ${viewMode === 'grid' ? 'bg-emerald-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:hover:text-white'}`}
+                  className={`p-2 sm:p-2.5 rounded-xl transition-all flex items-center justify-center ${viewMode === 'grid' ? 'bg-emerald-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:hover:text-white'}`}
                   title="Tampilan Kartu (Grid)"
                 >
                   <LayoutGrid size={16}/>
@@ -2145,7 +2150,7 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => setViewMode('table')}
-                  className={`p-2.5 rounded-xl transition-all ${viewMode === 'table' ? 'bg-emerald-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:hover:text-white'}`}
+                  className={`p-2 sm:p-2.5 rounded-xl transition-all flex items-center justify-center ${viewMode === 'table' ? 'bg-emerald-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:hover:text-white'}`}
                   title="Tampilan Tabel (Baris)"
                 >
                   <List size={16}/>
@@ -2155,17 +2160,17 @@ export default function App() {
           </div>
 
           {/* Filter Rentang Tanggal */}
-          <div className="flex items-center gap-3 pt-2 border-t border-slate-200/70 dark:border-slate-800/70 flex-wrap">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 sm:gap-3 pt-2 border-t border-slate-200/70 dark:border-slate-800/70 flex-wrap">
             <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500">
-              <CalendarDays size={14} className="text-emerald-600 dark:text-emerald-400"/>
+              <CalendarDays size={14} className="text-emerald-600 dark:text-emerald-400 shrink-0"/>
               <span>Rentang Tanggal:</span>
             </div>
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="grid grid-cols-[1fr_auto_1fr] sm:flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
               <input
                 type="date"
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
-                className="px-3.5 py-2 bg-white/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold outline-none focus:border-emerald-700 text-slate-900 dark:text-white"
+                className="w-full sm:w-auto min-w-0 px-2.5 sm:px-3.5 py-2 bg-white/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl text-[11px] sm:text-xs font-bold outline-none focus:border-emerald-700 text-slate-900 dark:text-white"
                 title="Dari Tanggal"
               />
               <span className="text-[10px] font-black uppercase text-slate-400 text-center">s/d</span>
@@ -2173,13 +2178,13 @@ export default function App() {
                 type="date"
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}
-                className="px-3.5 py-2 bg-white/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold outline-none focus:border-emerald-700 text-slate-900 dark:text-white"
+                className="w-full sm:w-auto min-w-0 px-2.5 sm:px-3.5 py-2 bg-white/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl text-[11px] sm:text-xs font-bold outline-none focus:border-emerald-700 text-slate-900 dark:text-white"
                 title="Sampai Tanggal"
               />
             </div>
 
             {/* Preset Filter Waktu 1-Klik */}
-            <div className="flex flex-wrap items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto">
               {[
                 { key: 'today', label: 'Hari Ini' },
                 { key: '7days', label: '7 Hari Terakhir' },
@@ -2191,7 +2196,7 @@ export default function App() {
                     key={preset.key}
                     type="button"
                     onClick={() => handleApplyDatePreset(preset.key)}
-                    className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border ${
+                    className={`flex-1 sm:flex-none px-2.5 sm:px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border text-center whitespace-nowrap ${
                       isActive
                         ? 'bg-emerald-700 text-white border-emerald-700 shadow-sm shadow-emerald-700/20'
                         : 'bg-white/80 dark:bg-slate-900/60 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-emerald-500 hover:text-emerald-700 dark:hover:text-emerald-400'
@@ -2203,7 +2208,7 @@ export default function App() {
               })}
             </div>
 
-            <div className="flex items-center gap-2 ml-auto">
+            <div className="flex items-center justify-end sm:ml-auto w-full sm:w-auto">
               <span className="text-[10px] font-bold text-slate-500">
                 Menampilkan <strong className="text-slate-800 dark:text-slate-200">{filteredAndSortedDocs.length}</strong> arsip
               </span>
@@ -2212,34 +2217,34 @@ export default function App() {
 
           {/* Filter Chips (Indikator Filter Aktif) */}
           {hasActiveFilters && (
-            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-200/70 dark:border-slate-800/70 animate-in fade-in duration-200">
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 pt-2 border-t border-slate-200/70 dark:border-slate-800/70 animate-in fade-in duration-200">
               <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 mr-1">Filter Aktif:</span>
               {searchTerm && (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 text-[10px] font-black">
-                  Cari: "{searchTerm}"
-                  <button type="button" onClick={() => setSearchTerm('')} className="hover:text-rose-600 transition-colors" title="Hapus kata kunci"><X size={12}/></button>
+                <span className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 text-[10px] font-black max-w-full">
+                  <span className="truncate max-w-[160px] sm:max-w-none">Cari: "{searchTerm}"</span>
+                  <button type="button" onClick={() => setSearchTerm('')} className="hover:text-rose-600 transition-colors shrink-0" title="Hapus kata kunci"><X size={12}/></button>
                 </span>
               )}
               {filterType !== 'Semua' && (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-[10px] font-black">
+                <span className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-[10px] font-black">
                   Jenis: {filterType}
                   <button type="button" onClick={() => setFilterType('Semua')} className="hover:text-rose-600 transition-colors" title="Hapus filter jenis"><X size={12}/></button>
                 </span>
               )}
               {filterYear !== 'Semua' && (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-800 text-[10px] font-black">
+                <span className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-800 text-[10px] font-black">
                   Tahun: {filterYear}
                   <button type="button" onClick={() => setFilterYear('Semua')} className="hover:text-rose-600 transition-colors" title="Hapus filter tahun"><X size={12}/></button>
                 </span>
               )}
               {dateFrom && (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-[10px] font-black">
+                <span className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-[10px] font-black">
                   Dari: {formatDateIndo(dateFrom)}
                   <button type="button" onClick={() => setDateFrom('')} className="hover:text-rose-600 transition-colors" title="Hapus tanggal mulai"><X size={12}/></button>
                 </span>
               )}
               {dateTo && (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-[10px] font-black">
+                <span className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-[10px] font-black">
                   Sampai: {formatDateIndo(dateTo)}
                   <button type="button" onClick={() => setDateTo('')} className="hover:text-rose-600 transition-colors" title="Hapus tanggal akhir"><X size={12}/></button>
                 </span>
@@ -2257,8 +2262,8 @@ export default function App() {
 
         {/* TOMBOL AKSI LAPORAN & TAMBAH MANUAL (HANYA MUNCUL JIKA ADA ADMIN LOGIN) */}
         {isAdmin && (
-          <div className="max-w-5xl mx-auto mt-6 flex justify-between animate-in fade-in zoom-in duration-500 gap-3 w-full flex-wrap">
-            <div className="flex flex-wrap gap-2">
+          <div className="max-w-5xl mx-auto mt-5 sm:mt-6 flex flex-col md:flex-row justify-between animate-in fade-in zoom-in duration-500 gap-3 w-full">
+            <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 w-full md:w-auto">
                 {!isTrashView && (
                   <button 
                     onClick={() => { 
@@ -2266,7 +2271,7 @@ export default function App() {
                       resetForm();
                       setShowDocForm(true); 
                     }} 
-                    className="px-8 py-4 bg-emerald-800 text-white rounded-2xl font-black uppercase text-[11px] tracking-widest btn-3d flex items-center justify-center gap-3 shadow-emerald-900/30 shrink-0"
+                    className="col-span-2 sm:col-span-1 px-5 sm:px-7 py-3.5 sm:py-4 bg-emerald-800 text-white rounded-2xl font-black uppercase text-[11px] tracking-widest btn-3d flex items-center justify-center gap-2.5 shadow-emerald-900/30 shrink-0"
                   >
                     <Plus size={18} /> Tambah Arsip Baru
                   </button>
@@ -2277,9 +2282,9 @@ export default function App() {
                         setIsSelectionMode(!isSelectionMode);
                         setSelectedItemsForAction([]);
                       }} 
-                      className={`px-5 py-4 rounded-2xl font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-2 transition-all ${isSelectionMode ? 'bg-orange-500 text-white shadow-orange-500/30 btn-3d-orange' : 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300'}`}
+                      className={`px-4 sm:px-5 py-3.5 sm:py-4 rounded-2xl font-black uppercase text-[10px] sm:text-[11px] tracking-widest flex items-center justify-center gap-2 transition-all ${isSelectionMode ? 'bg-orange-500 text-white shadow-orange-500/30 btn-3d-orange' : 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300'}`}
                    >
-                     <CheckSquare size={18} /> {isSelectionMode ? 'Batal Pilih' : 'Pilih Banyak'}
+                     <CheckSquare size={17} /> {isSelectionMode ? 'Batal Pilih' : 'Pilih Banyak'}
                    </button>
                 )}
                 {adminUser?.role === 'superadmin' && (
@@ -2289,14 +2294,14 @@ export default function App() {
                       setIsSelectionMode(false);
                       setSelectedItemsForAction([]);
                     }}
-                    className={`px-5 py-4 rounded-2xl font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-2 transition-all ${
+                    className={`px-4 sm:px-5 py-3.5 sm:py-4 rounded-2xl font-black uppercase text-[10px] sm:text-[11px] tracking-widest flex items-center justify-center gap-2 transition-all ${
                       isTrashView
-                        ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/30'
+                        ? 'col-span-2 sm:col-span-1 bg-rose-600 text-white shadow-lg shadow-rose-600/30'
                         : 'bg-rose-100/80 dark:bg-rose-950/50 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800/60 hover:bg-rose-600 hover:text-white'
                     }`}
                     title="Buka Sampah / Recycle Bin"
                   >
-                    <Trash2 size={17} />
+                    <Trash2 size={16} />
                     <span>{isTrashView ? 'Kembali ke Arsip' : 'Sampah'}</span>
                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${isTrashView ? 'bg-white/20 text-white' : 'bg-rose-600 text-white'}`}>
                       {trashedDocuments.length}
@@ -2306,15 +2311,15 @@ export default function App() {
             </div>
             
             {!isTrashView && (
-              <div className="flex gap-2">
-                <button onClick={() => handleExportExcel()} className="px-5 py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase text-[11px] tracking-widest btn-3d flex items-center justify-center gap-2 shadow-emerald-600/30 flex-1 sm:flex-none" title="Ekspor ke Excel">
-                  <Table size={18} /> <span className="hidden sm:inline">Excel</span>
+              <div className="grid grid-cols-3 sm:flex gap-2 w-full md:w-auto">
+                <button onClick={() => handleExportExcel()} className="px-3 sm:px-5 py-3.5 sm:py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase text-[10px] sm:text-[11px] tracking-widest btn-3d flex items-center justify-center gap-1.5 sm:gap-2 shadow-emerald-600/30 flex-1 md:flex-none" title="Ekspor ke Excel">
+                  <Table size={16} /> <span>Excel</span>
                 </button>
-                <button onClick={() => handleExportWord()} className="px-5 py-4 bg-blue-700 text-white rounded-2xl font-black uppercase text-[11px] tracking-widest btn-3d flex items-center justify-center gap-2 shadow-blue-700/30 flex-1 sm:flex-none" title="Ekspor ke Word">
-                  <FileText size={18} /> <span className="hidden sm:inline">Word</span>
+                <button onClick={() => handleExportWord()} className="px-3 sm:px-5 py-3.5 sm:py-4 bg-blue-700 text-white rounded-2xl font-black uppercase text-[10px] sm:text-[11px] tracking-widest btn-3d flex items-center justify-center gap-1.5 sm:gap-2 shadow-blue-700/30 flex-1 md:flex-none" title="Ekspor ke Word">
+                  <FileText size={16} /> <span>Word</span>
                 </button>
-                <button onClick={() => handlePrintReport()} className="px-5 py-4 bg-slate-700 text-white rounded-2xl font-black uppercase text-[11px] tracking-widest btn-3d flex items-center justify-center gap-2 shadow-slate-700/30 flex-1 sm:flex-none" title="Cetak/Print Laporan">
-                  <Printer size={18} /> <span className="hidden sm:inline">Print</span>
+                <button onClick={() => handlePrintReport()} className="px-3 sm:px-5 py-3.5 sm:py-4 bg-slate-700 text-white rounded-2xl font-black uppercase text-[10px] sm:text-[11px] tracking-widest btn-3d flex items-center justify-center gap-1.5 sm:gap-2 shadow-slate-700/30 flex-1 md:flex-none" title="Cetak/Print Laporan">
+                  <Printer size={16} /> <span>Print</span>
                 </button>
               </div>
             )}
@@ -2323,7 +2328,7 @@ export default function App() {
 
         {/* BANNER MODE SAMPAH / RECYCLE BIN */}
         {isTrashView && adminUser?.role === 'superadmin' && (
-          <div className="max-w-5xl mx-auto mt-5 glass-card p-5 rounded-[2rem] border border-rose-300 dark:border-rose-800/70 bg-rose-50/80 dark:bg-rose-950/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 w-full animate-in fade-in duration-300">
+          <div className="max-w-5xl mx-auto mt-5 glass-card p-4 sm:p-5 rounded-3xl sm:rounded-[2rem] border border-rose-300 dark:border-rose-800/70 bg-rose-50/80 dark:bg-rose-950/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 w-full animate-in fade-in duration-300">
             <div className="flex items-center gap-3.5">
               <div className="w-11 h-11 rounded-2xl bg-rose-100 dark:bg-rose-900/50 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
                 <Trash2 size={22}/>
@@ -2339,7 +2344,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={handleEmptyTrash}
-                className="px-5 py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shrink-0 shadow-md shadow-rose-600/20 transition-colors"
+                className="w-full sm:w-auto px-5 py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 shrink-0 shadow-md shadow-rose-600/20 transition-colors"
               >
                 <Trash2 size={14}/> Kosongkan Sampah
               </button>
@@ -2349,9 +2354,9 @@ export default function App() {
 
         {/* DOCUMENTS GRID / TABLE VIEW / SKELETON LOADING */}
         {isLoadingDocs ? (
-          <div className="grid gap-6 mt-8 mb-10 w-full grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:gap-6 mt-6 sm:mt-8 mb-10 w-full grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 6 }).map((_, idx) => (
-              <div key={idx} className="glass-card p-6 rounded-[2rem] border border-slate-200/70 dark:border-slate-800/70 animate-pulse flex flex-col gap-4">
+              <div key={idx} className="glass-card p-5 sm:p-6 rounded-3xl sm:rounded-[2rem] border border-slate-200/70 dark:border-slate-800/70 animate-pulse flex flex-col gap-4">
                 <div className="flex justify-between items-center">
                   <div className="h-12 w-20 rounded-xl bg-slate-200 dark:bg-slate-800"></div>
                   <div className="h-7 w-24 rounded-xl bg-slate-200 dark:bg-slate-800"></div>
@@ -2376,25 +2381,25 @@ export default function App() {
             ))}
           </div>
         ) : paginatedDocs.length === 0 ? (
-          <div className="flex-1 flex flex-col items-center justify-center text-center animate-in fade-in duration-500 opacity-60 mt-16">
-            {isTrashView ? <Trash2 size={80} className="text-rose-400 dark:text-rose-600 mb-6" /> : <FileText size={80} className="text-slate-400 dark:text-slate-600 mb-6" />}
-            <h3 className="text-xl font-black text-slate-800 dark:text-slate-200 mb-2">{isTrashView ? 'Sampah Kosong' : 'Data Arsip Kosong'}</h3>
-            <p className="text-sm font-bold text-slate-500">{isTrashView ? 'Tidak ada arsip yang dihapus sementara di Recycle Bin.' : 'Silakan sesuaikan filter kata kunci, tahun, atau rentang tanggal Anda.'}</p>
+          <div className="flex-1 flex flex-col items-center justify-center text-center animate-in fade-in duration-500 opacity-60 mt-16 mb-10 px-4">
+            {isTrashView ? <Trash2 size={72} className="text-rose-400 dark:text-rose-600 mb-5" /> : <FileText size={72} className="text-slate-400 dark:text-slate-600 mb-5" />}
+            <h3 className="text-lg sm:text-xl font-black text-slate-800 dark:text-slate-200 mb-2">{isTrashView ? 'Sampah Kosong' : 'Data Arsip Kosong'}</h3>
+            <p className="text-xs sm:text-sm font-bold text-slate-500">{isTrashView ? 'Tidak ada arsip yang dihapus sementara di Recycle Bin.' : 'Silakan sesuaikan filter kata kunci, tahun, atau rentang tanggal Anda.'}</p>
           </div>
         ) : viewMode === 'table' ? (
-          <div className="glass-card rounded-[2rem] border border-slate-300 dark:border-slate-700/50 shadow-xl mt-8 mb-10 overflow-hidden w-full">
-            <div data-lenis-prevent className="overflow-auto max-h-[68vh]">
-              <table className="w-full text-left border-collapse">
+          <div className="glass-card rounded-2xl sm:rounded-[2rem] border border-slate-300 dark:border-slate-700/50 shadow-xl mt-6 sm:mt-8 mb-10 overflow-hidden w-full">
+            <div data-lenis-prevent className="overflow-auto max-h-[68vh] w-full">
+              <table className="w-full text-left border-collapse min-w-[760px]">
                 <thead className="sticky top-0 z-20 bg-slate-100/95 dark:bg-slate-900/95 backdrop-blur-md shadow-sm">
                   <tr className="border-b border-slate-200 dark:border-slate-800 text-[10px] font-black uppercase tracking-widest text-slate-500">
-                    {isSelectionMode && <th className="py-4 px-4 w-10 text-center">Pilih</th>}
-                    <th className="py-4 px-4 whitespace-nowrap">Agenda</th>
-                    <th className="py-4 px-4 whitespace-nowrap">Jenis</th>
-                    <th className="py-4 px-4 whitespace-nowrap">No. Berkas</th>
-                    <th className="py-4 px-4 whitespace-nowrap">Pengirim / Penerima</th>
-                    <th className="py-4 px-4 min-w-[220px]">Perihal</th>
-                    <th className="py-4 px-4 whitespace-nowrap">Tanggal</th>
-                    <th className="py-4 px-4 text-right whitespace-nowrap">Aksi</th>
+                    {isSelectionMode && <th className="py-3.5 px-3 sm:py-4 sm:px-4 w-10 text-center">Pilih</th>}
+                    <th className="py-3.5 px-3 sm:py-4 sm:px-4 whitespace-nowrap">Agenda</th>
+                    <th className="py-3.5 px-3 sm:py-4 sm:px-4 whitespace-nowrap">Jenis</th>
+                    <th className="py-3.5 px-3 sm:py-4 sm:px-4 whitespace-nowrap">No. Berkas</th>
+                    <th className="py-3.5 px-3 sm:py-4 sm:px-4 whitespace-nowrap">Pengirim / Penerima</th>
+                    <th className="py-3.5 px-3 sm:py-4 sm:px-4 min-w-[200px]">Perihal</th>
+                    <th className="py-3.5 px-3 sm:py-4 sm:px-4 whitespace-nowrap">Tanggal</th>
+                    <th className="py-3.5 px-3 sm:py-4 sm:px-4 text-right whitespace-nowrap">Aksi</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200/70 dark:divide-slate-800/70 text-xs">
@@ -2407,7 +2412,7 @@ export default function App() {
                         className={`transition-colors cursor-pointer ${isSelected ? 'bg-orange-50/70 dark:bg-orange-900/20' : 'hover:bg-emerald-50/50 dark:hover:bg-slate-800/50'}`}
                       >
                         {isSelectionMode && (
-                          <td className="py-3.5 px-4 text-center" onClick={(e) => e.stopPropagation()}>
+                          <td className="py-3 px-3 sm:py-3.5 sm:px-4 text-center" onClick={(e) => e.stopPropagation()}>
                             <button
                               type="button"
                               onClick={() => handleToggleSelectDoc(docItem.id)}
@@ -2417,18 +2422,18 @@ export default function App() {
                             </button>
                           </td>
                         )}
-                        <td className="py-3.5 px-4 whitespace-nowrap font-black text-slate-900 dark:text-white">
+                        <td className="py-3 px-3 sm:py-3.5 sm:px-4 whitespace-nowrap font-black text-slate-900 dark:text-white">
                           <div className="flex items-center gap-1.5">
                             <span className="text-emerald-500">#</span>{highlightText(docItem.nomorUrut, searchTerm)}
                             {docItem.isPinned && <Pin size={12} className="text-emerald-500 fill-current"/>}
                           </div>
                         </td>
-                        <td className="py-3.5 px-4 whitespace-nowrap">
+                        <td className="py-3 px-3 sm:py-3.5 sm:px-4 whitespace-nowrap">
                           <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${getStatusBadgeClass(docItem.jenisSurat)}`}>
                             {docItem.jenisSurat}
                           </span>
                         </td>
-                        <td className="py-3.5 px-4 whitespace-nowrap">
+                        <td className="py-3 px-3 sm:py-3.5 sm:px-4 whitespace-nowrap">
                           <div className="flex items-center gap-2">
                             <span className="font-black text-slate-900 dark:text-white">{highlightText(docItem.nomorBerkas, searchTerm)}</span>
                             {docItem.nomorBerkas && (
@@ -2443,16 +2448,16 @@ export default function App() {
                             )}
                           </div>
                         </td>
-                        <td className="py-3.5 px-4 font-bold text-slate-700 dark:text-slate-300 max-w-[180px] truncate">
+                        <td className="py-3 px-3 sm:py-3.5 sm:px-4 font-bold text-slate-700 dark:text-slate-300 max-w-[180px] truncate">
                           {highlightText(docItem.alamatPenerima, searchTerm)}
                         </td>
-                        <td className="py-3.5 px-4 text-slate-600 dark:text-slate-300 font-medium">
+                        <td className="py-3 px-3 sm:py-3.5 sm:px-4 text-slate-600 dark:text-slate-300 font-medium">
                           <p className="line-clamp-2">{highlightText(docItem.perihal, searchTerm)}</p>
                         </td>
-                        <td className="py-3.5 px-4 whitespace-nowrap font-bold text-slate-500 dark:text-slate-400">
+                        <td className="py-3 px-3 sm:py-3.5 sm:px-4 whitespace-nowrap font-bold text-slate-500 dark:text-slate-400">
                           {formatDateIndo(docItem.tanggal)}
                         </td>
-                        <td className="py-3.5 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        <td className="py-3 px-3 sm:py-3.5 sm:px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                           <div className="inline-flex items-center gap-1.5">
                             {isTrashView && adminUser?.role === 'superadmin' ? (
                               <>
@@ -2508,32 +2513,32 @@ export default function App() {
             </div>
           </div>
         ) : (
-          <div className="grid gap-6 mt-8 mb-10 w-full grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-            {paginatedDocs.map((docItem, idx) => {
+          <div className="grid gap-4 sm:gap-6 mt-6 sm:mt-8 mb-10 w-full grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+            {paginatedDocs.map((docItem) => {
               const isSelected = selectedItemsForAction.includes(docItem.id);
 
               return (
                 <div 
                   key={docItem.id} 
                   onClick={isSelectionMode ? () => handleToggleSelectDoc(docItem.id) : undefined}
-                  className={`sigap-doc-card glass-card p-6 rounded-[2rem] border shadow-lg group flex flex-col h-full relative overflow-hidden ${isSelectionMode ? 'cursor-pointer hover:border-orange-500 hover:ring-2 hover:ring-orange-500/20' : ''} ${isSelected ? 'border-orange-500 bg-orange-50/50 dark:bg-orange-900/20 ring-2 ring-orange-500/30' : 'border-slate-300 dark:border-slate-700/50 bg-white/60 dark:bg-slate-900/40'}`}
+                  className={`sigap-doc-card glass-card p-4 sm:p-6 rounded-3xl sm:rounded-[2rem] border shadow-lg group flex flex-col h-full relative overflow-hidden ${isSelectionMode ? 'cursor-pointer hover:border-orange-500 hover:ring-2 hover:ring-orange-500/20' : ''} ${isSelected ? 'border-orange-500 bg-orange-50/50 dark:bg-orange-900/20 ring-2 ring-orange-500/30' : 'border-slate-300 dark:border-slate-700/50 bg-white/60 dark:bg-slate-900/40'}`}
                 >
                   <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${getStatusBadgeClass(docItem.jenisSurat).split(' ')[0]}`}></div>
 
-                  <div className="flex justify-between items-start gap-3 mb-5 pl-2 relative z-20">
-                    <div className="flex flex-col items-start bg-white/80 dark:bg-slate-900/80 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm backdrop-blur-sm shrink-0">
+                  <div className="flex justify-between items-start gap-3 mb-4 sm:mb-5 pl-2 relative z-20">
+                    <div className="flex flex-col items-start bg-white/80 dark:bg-slate-900/80 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm backdrop-blur-sm shrink-0">
                       <span className="text-[8px] uppercase tracking-[0.2em] font-black text-slate-400 dark:text-slate-500 mb-0.5">No. Agenda</span>
-                      <div className="text-xl font-black text-slate-800 dark:text-white drop-shadow-sm flex items-center gap-1 leading-none">
+                      <div className="text-lg sm:text-xl font-black text-slate-800 dark:text-white drop-shadow-sm flex items-center gap-1 leading-none">
                         <span className="text-emerald-500">#</span>{highlightText(docItem.nomorUrut, searchTerm)}
                       </div>
                     </div>
 
-                    <div className="flex flex-col items-end gap-2.5 min-w-0">
+                    <div className="flex flex-col items-end gap-2 min-w-0">
                       <div className="flex flex-wrap justify-end items-center gap-1.5">
                         {docItem.isPinned && (
                           <span className="px-2 py-1 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 rounded-xl text-[9px] font-black uppercase tracking-widest border border-emerald-200 dark:border-emerald-800 flex items-center gap-1 shadow-sm"><Pin size={10} className="fill-current"/> Prioritas</span>
                         )}
-                        <span className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-sm border border-transparent whitespace-nowrap ${getStatusBadgeClass(docItem.jenisSurat)}`}>
+                        <span className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-sm border border-transparent whitespace-nowrap ${getStatusBadgeClass(docItem.jenisSurat)}`}>
                           {docItem.jenisSurat}
                         </span>
                         {isSelectionMode && (
@@ -2545,12 +2550,12 @@ export default function App() {
 
                       {!isSelectionMode && isAdmin && (
                         isTrashView && adminUser?.role === 'superadmin' ? (
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1.5 sm:gap-2">
                             <button onClick={(e) => handleRestoreDoc(docItem, e)} className="px-2.5 py-1.5 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 rounded-xl hover:bg-emerald-600 hover:text-white transition-all shadow-sm text-[10px] font-black uppercase tracking-wider flex items-center gap-1" title="Pulihkan ke Arsip Aktif"><RotateCcw size={12}/> Pulihkan</button>
                             <button onClick={(e) => handlePermanentDeleteDoc(docItem, e)} className="p-2 bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-400 rounded-xl hover:bg-rose-600 hover:text-white transition-all shadow-sm" title="Hapus Permanen"><Trash2 size={14}/></button>
                           </div>
                         ) : (
-                          <div className="flex items-center gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300">
+                          <div className="flex items-center gap-1.5 sm:gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300">
                             <button onClick={(e) => handleDuplicateDoc(docItem, e)} className="p-2 bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400 rounded-xl hover:bg-blue-600 hover:text-white transition-all shadow-sm" title="Duplikat / Buat Serupa"><CopyPlus size={14}/></button>
                             {adminUser?.role === 'superadmin' && (
                               <>
@@ -2567,13 +2572,13 @@ export default function App() {
                   
                   <div className="flex-1 mb-4 pl-2">
                     <div className="flex items-center gap-3 mb-3">
-                      <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-emerald-800 dark:text-emerald-400 shrink-0 border border-slate-200 dark:border-slate-700 overflow-hidden">
-                        <FileText size={20} />
+                      <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-emerald-800 dark:text-emerald-400 shrink-0 border border-slate-200 dark:border-slate-700 overflow-hidden">
+                        <FileText size={18} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">No. Berkas</p>
                         <div className="flex items-center gap-1.5">
-                          <h3 className="text-sm font-black leading-snug text-slate-900 dark:text-white group-hover:text-emerald-700 dark:group-hover:text-emerald-400 transition-colors line-clamp-1">
+                          <h3 className="text-xs sm:text-sm font-black leading-snug text-slate-900 dark:text-white group-hover:text-emerald-700 dark:group-hover:text-emerald-400 transition-colors line-clamp-1">
                             {highlightText(docItem.nomorBerkas, searchTerm)}
                           </h3>
                           {docItem.nomorBerkas && !isSelectionMode && (
@@ -2591,12 +2596,12 @@ export default function App() {
                     </div>
 
                     <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700/50 mb-2.5">
-                      <Building size={16} className="text-orange-600 shrink-0"/>
+                      <Building size={15} className="text-orange-600 shrink-0"/>
                       <div className="overflow-hidden flex-1">
                         <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">
                           {docItem.jenisSurat === 'Surat Masuk' ? 'Pengirim' : 'Penerima'}
                         </p>
-                        <p className="text-sm font-bold text-slate-800 dark:text-slate-200 truncate">{highlightText(docItem.alamatPenerima, searchTerm)}</p>
+                        <p className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200 truncate">{highlightText(docItem.alamatPenerima, searchTerm)}</p>
                       </div>
                     </div>
 
@@ -2609,11 +2614,11 @@ export default function App() {
                     </div>
                   </div>
 
-                  <div className="pt-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between mt-auto pl-2">
-                    <div className="text-[10px] font-bold text-slate-500 flex flex-col gap-1">
-                      <span className="flex items-center gap-1.5"><CalendarDays size={12} className="text-emerald-600 dark:text-emerald-400"/> {formatDateIndo(docItem.tanggal)}</span>
+                  <div className="pt-3.5 sm:pt-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between mt-auto pl-2 gap-2">
+                    <div className="text-[10px] font-bold text-slate-500 flex flex-col gap-1 min-w-0">
+                      <span className="flex items-center gap-1.5"><CalendarDays size={12} className="text-emerald-600 dark:text-emerald-400 shrink-0"/> {formatDateIndo(docItem.tanggal)}</span>
                       {isTrashView && docItem.deletedAt && (
-                        <span className="text-[9px] text-rose-600 dark:text-rose-400">
+                        <span className="text-[9px] text-rose-600 dark:text-rose-400 truncate">
                           Dihapus: {formatDateTimeIndo(docItem.deletedAt)}
                         </span>
                       )}
@@ -2624,7 +2629,7 @@ export default function App() {
                          e.stopPropagation(); 
                          setSelectedDoc(docItem); setShowHistory(false); 
                       }}
-                      className={`p-2.5 rounded-xl transition-all shadow-sm flex items-center justify-center ${isSelectionMode ? 'bg-slate-100 text-slate-400 cursor-not-allowed dark:bg-slate-800' : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-800 dark:text-emerald-400 hover:bg-emerald-800 hover:text-white group/btn'}`}
+                      className={`p-2.5 rounded-xl transition-all shadow-sm flex items-center justify-center shrink-0 ${isSelectionMode ? 'bg-slate-100 text-slate-400 cursor-not-allowed dark:bg-slate-800' : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-800 dark:text-emerald-400 hover:bg-emerald-800 hover:text-white group/btn'}`}
                       title="Lihat Detail Surat"
                     >
                       <ChevronRight size={18} className={isSelectionMode ? "" : "group-hover/btn:translate-x-0.5 transition-transform"} />
@@ -2638,10 +2643,12 @@ export default function App() {
 
         {/* PAGINATION CONTROLS */}
         {filteredAndSortedDocs.length > 0 && (
-          <div className="pt-6 flex justify-between items-center gap-4 glass-card p-4 rounded-[2rem] w-full flex-col sm:flex-row">
-            <div className="flex items-center gap-3 w-full sm:w-auto">
-              <ListOrdered size={18} className="text-slate-400 shrink-0"/>
-              <span className="text-[11px] font-black uppercase tracking-widest text-slate-500 shrink-0">Tampilkan:</span>
+          <div className="pt-4 sm:pt-6 flex justify-between items-center gap-3 sm:gap-4 glass-card p-3.5 sm:p-4 rounded-3xl sm:rounded-[2rem] w-full flex-col sm:flex-row">
+            <div className="flex items-center justify-between sm:justify-start gap-3 w-full sm:w-auto">
+              <div className="flex items-center gap-2">
+                <ListOrdered size={18} className="text-slate-400 shrink-0"/>
+                <span className="text-[11px] font-black uppercase tracking-widest text-slate-500 shrink-0">Tampilkan:</span>
+              </div>
               
               {itemsPerPage === 'custom' ? (
                 <div className="flex items-center gap-2">
@@ -2687,11 +2694,11 @@ export default function App() {
               )}
             </div>
             
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 w-full sm:w-auto">
               <button 
                 disabled={Number(currentPage) <= 1 || currentPage === ''}
                 onClick={() => setCurrentPage(p => (Number(p) || 1) - 1)}
-                className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-[10px] font-black uppercase tracking-widest disabled:opacity-50 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors flex items-center gap-1"
+                className="px-3 sm:px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-[10px] font-black uppercase tracking-widest disabled:opacity-50 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors flex items-center gap-1"
               >
                 <ChevronRight size={14} className="rotate-180"/> Prev
               </button>
@@ -2721,7 +2728,7 @@ export default function App() {
               <button 
                 disabled={Number(currentPage) >= totalPages || totalPages === 0 || currentPage === ''}
                 onClick={() => setCurrentPage(p => (Number(p) || 1) + 1)}
-                className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-[10px] font-black uppercase tracking-widest disabled:opacity-50 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors flex items-center gap-1"
+                className="px-3 sm:px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-[10px] font-black uppercase tracking-widest disabled:opacity-50 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors flex items-center gap-1"
               >
                 Next <ChevronRight size={14}/>
               </button>
@@ -2732,12 +2739,12 @@ export default function App() {
 
       {/* MODAL LOGIN ADMIN */}
       {showLoginModal && (
-        <div className="fixed inset-0 z-[800] flex items-center justify-center p-4 sm:p-6 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="glass-card p-10 rounded-[3rem] w-full max-w-sm shadow-2xl relative text-center border border-emerald-800/30 overflow-hidden">
-            <button onClick={() => { setShowLoginModal(false); setLoginError(''); }} className="absolute top-6 right-6 p-2 text-slate-500 hover:text-rose-500 transition-colors"><X size={18}/></button>
+        <div className="fixed inset-0 z-[800] flex items-center justify-center p-3 sm:p-6 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="glass-card p-6 sm:p-10 rounded-3xl sm:rounded-[3rem] w-full max-w-sm shadow-2xl relative text-center border border-emerald-800/30 overflow-hidden">
+            <button onClick={() => { setShowLoginModal(false); setLoginError(''); }} className="absolute top-5 right-5 sm:top-6 sm:right-6 p-2 text-slate-500 hover:text-rose-500 transition-colors"><X size={18}/></button>
             {logoSettings.image ? (
               <div
-                className="mx-auto mb-6 overflow-hidden flex items-center justify-center drop-shadow-md"
+                className="mx-auto mb-5 sm:mb-6 overflow-hidden flex items-center justify-center drop-shadow-md"
                 style={{
                   width: '68px',
                   height: '68px',
@@ -2754,10 +2761,10 @@ export default function App() {
                 />
               </div>
             ) : (
-              <Shield size={60} className="text-emerald-800 mx-auto mb-6 drop-shadow-md"/>
+              <Shield size={56} className="text-emerald-800 mx-auto mb-5 sm:mb-6 drop-shadow-md"/>
             )}
-            <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-2">Akses Petugas</h2>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-8">Login untuk Mengelola SIGAP</p>
+            <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white mb-2">Akses Petugas</h2>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-6 sm:mb-8">Login untuk Mengelola SIGAP</p>
 
             {loginError && (
               <div className="mb-4 p-3 bg-rose-100/80 border border-rose-300 dark:bg-rose-900/30 dark:border-rose-800 rounded-2xl text-rose-600 dark:text-rose-400 text-xs font-bold flex items-center justify-center gap-2 animate-in fade-in zoom-in duration-300">
@@ -2769,18 +2776,18 @@ export default function App() {
             <form onSubmit={handleLogin} className="space-y-4 text-left">
               <div className="space-y-1">
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2">Username</label>
-                <input type="text" value={loginCreds.username} onChange={e=>setLoginCreds({...loginCreds, username: e.target.value})} className="w-full px-5 py-4 bg-white/80 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:border-emerald-800 font-bold text-sm transition-all" placeholder="admin" required autoFocus/>
+                <input type="text" value={loginCreds.username} onChange={e=>setLoginCreds({...loginCreds, username: e.target.value})} className="w-full px-5 py-3.5 sm:py-4 bg-white/80 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:border-emerald-800 font-bold text-sm transition-all" placeholder="admin" required autoFocus/>
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2">Password</label>
                 <div className="relative">
-                  <input type={showPassword ? "text" : "password"} value={loginCreds.password} onChange={e=>setLoginCreds({...loginCreds, password: e.target.value})} className="w-full px-5 py-4 bg-white/80 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:border-emerald-800 font-black text-center tracking-[0.3em] text-sm transition-all" placeholder="password" required/>
+                  <input type={showPassword ? "text" : "password"} value={loginCreds.password} onChange={e=>setLoginCreds({...loginCreds, password: e.target.value})} className="w-full px-5 py-3.5 sm:py-4 bg-white/80 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:border-emerald-800 font-black text-center tracking-[0.25em] sm:tracking-[0.3em] text-sm transition-all" placeholder="password" required/>
                   <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-800 transition-colors p-1" title={showPassword ? "Sembunyikan Password" : "Tampilkan Password"}>
                     {showPassword ? <EyeOff size={18}/> : <Eye size={18}/>}
                   </button>
                 </div>
               </div>
-              <button type="submit" className="w-full py-4 mt-2 bg-emerald-800 text-white rounded-2xl font-black uppercase text-[11px] tracking-widest btn-3d transition-colors hover:text-white">Masuk Sistem</button>
+              <button type="submit" className="w-full py-3.5 sm:py-4 mt-2 bg-emerald-800 text-white rounded-2xl font-black uppercase text-[11px] tracking-widest btn-3d transition-colors hover:text-white">Masuk Sistem</button>
             </form>
           </div>
         </div>
@@ -2788,59 +2795,59 @@ export default function App() {
 
       {/* MODAL DETAIL DOKUMEN */}
       {selectedDoc && (
-        <div className="fixed inset-0 z-[600] flex items-center justify-center p-4 sm:p-6 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300" onClick={() => setSelectedDoc(null)}>
-          <div className="glass-card p-0 rounded-[3rem] w-full max-w-2xl shadow-[0_0_50px_rgba(6,95,70,0.15)] relative border border-emerald-800/30 overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-300" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[600] flex items-center justify-center p-2.5 sm:p-6 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300" onClick={() => setSelectedDoc(null)}>
+          <div className="glass-card p-0 rounded-3xl sm:rounded-[3rem] w-full max-w-2xl shadow-[0_0_50px_rgba(6,95,70,0.15)] relative border border-emerald-800/30 overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[90vh] animate-in zoom-in-95 duration-300" onClick={e => e.stopPropagation()}>
             
-            <div className="p-8 pb-6 border-b border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 relative shrink-0">
+            <div className="p-5 pb-4 sm:p-8 sm:pb-6 border-b border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 relative shrink-0">
               <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-emerald-800 to-orange-500"></div>
-              <button onClick={() => setSelectedDoc(null)} className="absolute top-6 right-6 p-2 bg-slate-100 dark:bg-slate-800 rounded-full text-slate-500 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors">
+              <button onClick={() => setSelectedDoc(null)} className="absolute top-4 right-4 sm:top-6 sm:right-6 p-2 bg-slate-100 dark:bg-slate-800 rounded-full text-slate-500 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors">
                 <X size={18}/>
               </button>
               
-              <div className="flex items-center gap-4 mb-4 mt-2">
+              <div className="flex items-center gap-3 mb-3 sm:mb-4 mt-1 pr-10">
                 <div>
                   <span className={`px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest text-white ${getStatusBadgeClass(selectedDoc.jenisSurat)}`}>
                     {selectedDoc.jenisSurat}
                   </span>
                 </div>
               </div>
-              <h2 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white leading-tight mb-2">{selectedDoc.perihal || 'Tanpa Perihal'}</h2>
-              <div className="flex flex-wrap items-center gap-3">
-                <p className="text-sm font-bold text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
-                  <Building size={16} className="text-orange-600"/> 
+              <h2 className="text-lg sm:text-2xl md:text-3xl font-black text-slate-900 dark:text-white leading-tight mb-2 pr-8 break-words">{selectedDoc.perihal || 'Tanpa Perihal'}</h2>
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                <p className="text-xs sm:text-sm font-bold text-slate-600 dark:text-slate-400 flex flex-wrap items-center gap-1.5">
+                  <Building size={15} className="text-orange-600 shrink-0"/> 
                   {selectedDoc.jenisSurat === 'Surat Masuk' ? 'Pengirim' : 'Penerima'}: 
-                  <span className="text-slate-900 dark:text-white bg-orange-50 dark:bg-orange-900/30 px-2 py-0.5 rounded border border-orange-200 dark:border-orange-800/50">{selectedDoc.alamatPenerima || '-'}</span>
+                  <span className="text-slate-900 dark:text-white bg-orange-50 dark:bg-orange-900/30 px-2 py-0.5 rounded border border-orange-200 dark:border-orange-800/50 break-words">{selectedDoc.alamatPenerima || '-'}</span>
                 </p>
               </div>
             </div>
 
-            <div className="flex border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50 shrink-0 px-8 pt-4 overflow-x-auto hide-scrollbar">
+            <div className="flex border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50 shrink-0 px-5 sm:px-8 pt-3 sm:pt-4 overflow-x-auto hide-scrollbar">
                <button onClick={()=>setShowHistory(false)} className={`pb-3 px-4 text-xs font-black uppercase tracking-widest border-b-2 transition-all whitespace-nowrap ${!showHistory ? 'border-emerald-800 text-emerald-800 dark:text-emerald-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>Detail Arsip</button>
                <button onClick={()=>setShowHistory(true)} className={`pb-3 px-4 text-xs font-black uppercase tracking-widest border-b-2 transition-all whitespace-nowrap flex items-center gap-2 ${showHistory ? 'border-emerald-800 text-emerald-800 dark:text-emerald-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>
                  Riwayat Edit {selectedDoc.history && selectedDoc.history.length > 0 && <span className="bg-orange-500 text-white px-1.5 rounded-full text-[9px]">{selectedDoc.history.length}</span>}
                </button>
             </div>
 
-            <div data-lenis-prevent className="p-8 overflow-y-auto bg-white/30 dark:bg-slate-900/30 flex-1">
+            <div data-lenis-prevent className="p-5 sm:p-8 overflow-y-auto bg-white/30 dark:bg-slate-900/30 flex-1">
               {!showHistory ? (
-                <div className="space-y-6">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-white/60 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                <div className="space-y-5 sm:space-y-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                    <div className="bg-white/60 dark:bg-slate-800/50 p-3.5 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
                       <p className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5 mb-1"><CalendarDays size={12}/> Tanggal</p>
                       <p className="text-sm font-black text-slate-900 dark:text-white">{formatDateIndo(selectedDoc.tanggal)}</p>
                     </div>
-                    <div className="bg-white/60 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                    <div className="bg-white/60 dark:bg-slate-800/50 p-3.5 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
                       <p className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5 mb-1"><ListOrdered size={12}/> No. Agenda</p>
                       <p className="text-sm font-black text-slate-900 dark:text-white">#{selectedDoc.nomorUrut}</p>
                     </div>
-                    <div className="bg-white/60 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm col-span-2">
+                    <div className="bg-white/60 dark:bg-slate-800/50 p-3.5 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm sm:col-span-2">
                       <div className="flex items-center justify-between gap-2 mb-1">
                         <p className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5"><FileText size={12}/> No. Berkas</p>
                         {selectedDoc.nomorBerkas && (
                           <button
                             type="button"
                             onClick={(e) => handleCopyText(selectedDoc.nomorBerkas, `detail-${selectedDoc.id}`, e)}
-                            className="px-2.5 py-1 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-700 hover:text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 transition-colors"
+                            className="px-2.5 py-1 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-700 hover:text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 transition-colors shrink-0"
                           >
                             {copiedId === `detail-${selectedDoc.id}` ? <><Check size={12}/> Tersalin</> : <><Copy size={12}/> Salin</>}
                           </button>
@@ -2855,18 +2862,18 @@ export default function App() {
                 </div>
               ) : (
                 <div className="space-y-6">
-                   <div className="relative pl-6 border-l-2 border-emerald-800/30 space-y-8">
+                   <div className="relative pl-6 border-l-2 border-emerald-800/30 space-y-6 sm:space-y-8">
                      {selectedDoc.history && selectedDoc.history.length > 0 ? (
                        selectedDoc.history.map((hist, i) => (
                          <div key={i} className="relative">
                            <span className={`absolute -left-[31px] top-1 w-4 h-4 rounded-full border-4 border-white dark:border-slate-900 shadow-sm ${i===0 ? 'bg-emerald-800' : 'bg-slate-300 dark:bg-slate-600'}`}></span>
-                           <div className={`p-4 rounded-2xl border ${i===0 ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800/50' : 'bg-white/60 dark:bg-slate-950/40 border-slate-200 dark:border-slate-800'}`}>
-                             <div className="flex justify-between items-start mb-2">
+                           <div className={`p-3.5 sm:p-4 rounded-2xl border ${i===0 ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800/50' : 'bg-white/60 dark:bg-slate-950/40 border-slate-200 dark:border-slate-800'}`}>
+                             <div className="flex flex-wrap justify-between items-start gap-1.5 mb-2">
                                <span className="text-[11px] font-black uppercase text-slate-600 dark:text-slate-400">Update {hist.version}</span>
                                <span className="text-[10px] font-bold text-slate-500">{formatDateTimeIndo(hist.date)}</span>
                              </div>
                              <p className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Oleh: {hist.updatedBy}</p>
-                             <p className="text-[12px] font-medium text-slate-800 dark:text-slate-200 bg-white/50 dark:bg-slate-900/50 p-2.5 rounded-lg mt-2 border border-slate-100 dark:border-slate-800">{hist.description}</p>
+                             <p className="text-[12px] font-medium text-slate-800 dark:text-slate-200 bg-white/50 dark:bg-slate-900/50 p-2.5 rounded-lg mt-2 border border-slate-100 dark:border-slate-800 break-words">{hist.description}</p>
                            </div>
                          </div>
                        ))
@@ -2878,17 +2885,17 @@ export default function App() {
               )}
             </div>
 
-            <div className="p-6 border-t border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 flex flex-col sm:flex-row gap-3 mt-auto shrink-0">
+            <div className="p-4 sm:p-6 border-t border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 flex flex-col sm:flex-row gap-2.5 sm:gap-3 mt-auto shrink-0">
               {isAdmin && (
                 <button
                   type="button"
                   onClick={(e) => handleDuplicateDoc(selectedDoc, e)}
-                  className="flex-1 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black uppercase text-[11px] tracking-widest transition-colors flex items-center justify-center gap-2 shadow-md shadow-blue-600/20"
+                  className="flex-1 py-3.5 sm:py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black uppercase text-[11px] tracking-widest transition-colors flex items-center justify-center gap-2 shadow-md shadow-blue-600/20"
                 >
                   <CopyPlus size={16}/> Buat Serupa
                 </button>
               )}
-              <button onClick={() => setSelectedDoc(null)} className="flex-1 py-4 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-2xl font-black uppercase text-[11px] tracking-widest hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors">
+              <button onClick={() => setSelectedDoc(null)} className="flex-1 py-3.5 sm:py-4 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-2xl font-black uppercase text-[11px] tracking-widest hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors">
                 Tutup
               </button>
             </div>
@@ -2899,40 +2906,40 @@ export default function App() {
       {/* MODAL FORM TAMBAH/EDIT ARSIP */}
       {showDocForm && isAdmin && (
         <div
-          className="fixed inset-0 z-[700] flex items-center justify-center p-4 sm:p-6 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300"
+          className="fixed inset-0 z-[700] flex items-center justify-center p-2.5 sm:p-6 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300"
           onClick={handleRequestCloseDocForm}
         >
           <div
-            className="glass-card p-0 rounded-[3rem] w-full max-w-2xl shadow-[0_0_50px_rgba(6,95,70,0.15)] relative border border-emerald-800/30 overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-300"
+            className="glass-card p-0 rounded-3xl sm:rounded-[3rem] w-full max-w-2xl shadow-[0_0_50px_rgba(6,95,70,0.15)] relative border border-emerald-800/30 overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[90vh] animate-in zoom-in-95 duration-300"
             onClick={e => e.stopPropagation()}
           >
             
-            <div className="p-8 pb-6 border-b border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 relative shrink-0">
+            <div className="p-5 pb-4 sm:p-8 sm:pb-6 border-b border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 relative shrink-0">
               <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-emerald-700 to-orange-500"></div>
-              <button onClick={handleRequestCloseDocForm} className="absolute top-6 right-6 p-2 bg-slate-100 dark:bg-slate-800 rounded-full text-slate-500 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors">
+              <button onClick={handleRequestCloseDocForm} className="absolute top-4 right-4 sm:top-6 sm:right-6 p-2 bg-slate-100 dark:bg-slate-800 rounded-full text-slate-500 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors">
                 <X size={18}/>
               </button>
-              <div className="flex items-center gap-4 mb-2">
-                <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-800/30 rounded-2xl flex items-center justify-center border border-emerald-200 dark:border-emerald-700/50">
-                   {editingDoc ? <Edit size={24} className="text-emerald-800 dark:text-emerald-400"/> : <Plus size={24} className="text-emerald-800 dark:text-emerald-400"/>}
+              <div className="flex items-center gap-3 sm:gap-4 mb-1 sm:mb-2 pr-10">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-emerald-100 dark:bg-emerald-800/30 rounded-2xl flex items-center justify-center border border-emerald-200 dark:border-emerald-700/50 shrink-0">
+                   {editingDoc ? <Edit size={22} className="text-emerald-800 dark:text-emerald-400"/> : <Plus size={22} className="text-emerald-800 dark:text-emerald-400"/>}
                 </div>
-                <div>
-                  <h2 className="text-xl font-black text-slate-900 dark:text-white leading-tight">{editingDoc ? 'Edit Data Arsip' : 'Tambah Arsip Surat'}</h2>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mt-1">SIGAP Lapas Kalabahi • Petugas: {adminUser.username}</p>
+                <div className="min-w-0">
+                  <h2 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white leading-tight truncate">{editingDoc ? 'Edit Data Arsip' : 'Tambah Arsip Surat'}</h2>
+                  <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-slate-500 mt-1 truncate">SIGAP Lapas Kalabahi • Petugas: {adminUser.username}</p>
                 </div>
               </div>
             </div>
 
-            <div data-lenis-prevent className="p-8 overflow-y-auto bg-white/30 dark:bg-slate-900/30 flex-1 hide-scrollbar">
-              <form id="docFormAdmin" onSubmit={handleSaveDoc} className="space-y-5 text-left">
+            <div data-lenis-prevent className="p-5 sm:p-8 overflow-y-auto bg-white/30 dark:bg-slate-900/30 flex-1 hide-scrollbar">
+              <form id="docFormAdmin" onSubmit={handleSaveDoc} className="space-y-4 sm:space-y-5 text-left">
                 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-5">
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-black uppercase text-slate-800 dark:text-slate-400 ml-1">Jenis Surat</label>
                     <select 
                       value={formData.jenisSurat} 
                       onChange={e => setFormData({...formData, jenisSurat: e.target.value})} 
-                      className="w-full px-5 py-4 premium-input rounded-2xl text-xs font-bold outline-none transition-all text-slate-900 dark:text-white cursor-pointer disabled:opacity-70"
+                      className="w-full px-4 sm:px-5 py-3.5 sm:py-4 premium-input rounded-2xl text-xs font-bold outline-none transition-all text-slate-900 dark:text-white cursor-pointer disabled:opacity-70"
                       disabled={editingDoc !== null && adminUser?.role !== 'superadmin'}
                     >
                       <option value="Surat Keluar">Surat Keluar</option>
@@ -2944,7 +2951,7 @@ export default function App() {
                     <select 
                       value={formData.formatSurat || 'Naskah Dinas Pengaturan/ Penugasan'} 
                       onChange={e => setFormData({...formData, formatSurat: e.target.value})} 
-                      className="w-full px-5 py-4 premium-input rounded-2xl text-xs font-bold outline-none transition-all text-slate-900 dark:text-white cursor-pointer"
+                      className="w-full px-4 sm:px-5 py-3.5 sm:py-4 premium-input rounded-2xl text-xs font-bold outline-none transition-all text-slate-900 dark:text-white cursor-pointer"
                     >
                       <option value="Naskah Dinas Pengaturan/ Penugasan">Naskah Dinas Pengaturan/ Penugasan</option>
                       <option value="Naskah Dinas Penetapan">Naskah Dinas Penetapan (SK)</option>
@@ -2958,12 +2965,12 @@ export default function App() {
                       value={formData.nomorUrut} 
                       onChange={e => setFormData({...formData, nomorUrut: Number(e.target.value)})} 
                       readOnly={adminUser?.role !== 'superadmin'}
-                      className={`w-full px-5 py-4 rounded-2xl text-xs font-bold outline-none transition-all text-slate-900 dark:text-white ${adminUser?.role === 'superadmin' ? 'premium-input' : 'bg-slate-100 dark:bg-slate-800 border-none text-slate-500 cursor-not-allowed'}`} 
+                      className={`w-full px-4 sm:px-5 py-3.5 sm:py-4 rounded-2xl text-xs font-bold outline-none transition-all text-slate-900 dark:text-white ${adminUser?.role === 'superadmin' ? 'premium-input' : 'bg-slate-100 dark:bg-slate-800 border-none text-slate-500 cursor-not-allowed'}`} 
                     />
                   </div>
                 </div>
 
-                <div className={`grid gap-5 ${(formData.formatSurat === 'Naskah Dinas Penetapan' || formData.formatSurat === 'Naskah Dinas Korespondensi/ Khusus') ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}`}>
+                <div className={`grid gap-4 sm:gap-5 ${(formData.formatSurat === 'Naskah Dinas Penetapan' || formData.formatSurat === 'Naskah Dinas Korespondensi/ Khusus') ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}`}>
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-black uppercase text-slate-800 dark:text-slate-400 ml-1">
                       {(formData.formatSurat === 'Naskah Dinas Penetapan' || formData.formatSurat === 'Naskah Dinas Korespondensi/ Khusus') ? 'Nomor Berkas (Depan)' : 'Nomor Berkas'}
@@ -2975,7 +2982,7 @@ export default function App() {
                         formData.formatSurat === 'Naskah Dinas Penetapan' ? 'Contoh: WP.22.PAS.6/' : 
                         (formData.formatSurat === 'Naskah Dinas Korespondensi/ Khusus' ? 'Contoh: WP.22.PAS.6/PK.05.01/' : 'Contoh: WP.22.PAS.6/PK.05.01/')
                       } 
-                      className="w-full px-5 py-4 premium-input rounded-2xl text-xs font-bold outline-none transition-all resize-y focus:min-h-[100px] text-slate-900 dark:text-white" 
+                      className="w-full px-4 sm:px-5 py-3.5 sm:py-4 premium-input rounded-2xl text-xs font-bold outline-none transition-all resize-y focus:min-h-[100px] text-slate-900 dark:text-white" 
                       rows={1} required></textarea>
                   </div>
                   
@@ -2988,15 +2995,15 @@ export default function App() {
                         placeholder={
                           formData.formatSurat === 'Naskah Dinas Penetapan' ? 'Contoh: /SA.04.01/2026' : 'Contoh: /2026'
                         } 
-                        className="w-full px-5 py-4 premium-input rounded-2xl text-xs font-bold outline-none transition-all resize-y focus:min-h-[100px] text-slate-900 dark:text-white" 
+                        className="w-full px-4 sm:px-5 py-3.5 sm:py-4 premium-input rounded-2xl text-xs font-bold outline-none transition-all resize-y focus:min-h-[100px] text-slate-900 dark:text-white" 
                         rows={1} required></textarea>
                     </div>
                   )}
                 </div>
 
                 {/* Live Preview Hasil Gabungan Nomor Berkas */}
-                <div className="p-4 rounded-2xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 flex flex-col gap-1.5">
-                  <div className="flex items-center justify-between gap-2">
+                <div className="p-3.5 sm:p-4 rounded-2xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 flex flex-col gap-1.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="text-[9px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
                       <FileText size={12}/> Pratinjau Hasil Nomor Surat
                     </span>
@@ -3006,7 +3013,7 @@ export default function App() {
                       </span>
                     )}
                   </div>
-                  <p className="text-sm font-black text-slate-900 dark:text-white break-all">
+                  <p className="text-xs sm:text-sm font-black text-slate-900 dark:text-white break-all">
                     {previewNomorBerkas || <span className="text-slate-400 font-semibold italic">Ketik nomor berkas untuk melihat hasil gabungan...</span>}
                   </p>
                 </div>
@@ -3026,7 +3033,7 @@ export default function App() {
                     onBlur={() => setTimeout(() => setShowAlamatSuggestions(false), 150)}
                     placeholder="Nama instansi atau orang (saran otomatis tersedia)"
                     autoComplete="off"
-                    className="w-full px-5 py-4 premium-input rounded-2xl text-xs font-bold outline-none transition-all text-slate-900 dark:text-white"
+                    className="w-full px-4 sm:px-5 py-3.5 sm:py-4 premium-input rounded-2xl text-xs font-bold outline-none transition-all text-slate-900 dark:text-white"
                     required
                   />
                   {showAlamatSuggestions && filteredAlamatSuggestions.length > 0 && (
@@ -3055,21 +3062,21 @@ export default function App() {
 
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-black uppercase text-slate-800 dark:text-slate-400 ml-1">Tanggal</label>
-                  <input type="date" value={formData.tanggal} onChange={e=>setFormData({...formData, tanggal: e.target.value})} className="w-full px-5 py-4 premium-input rounded-2xl text-xs font-bold outline-none transition-all text-slate-900 dark:text-white" required />
+                  <input type="date" value={formData.tanggal} onChange={e=>setFormData({...formData, tanggal: e.target.value})} className="w-full px-4 sm:px-5 py-3.5 sm:py-4 premium-input rounded-2xl text-xs font-bold outline-none transition-all text-slate-900 dark:text-white" required />
                 </div>
 
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-black uppercase text-slate-800 dark:text-slate-400 ml-1">Perihal</label>
-                  <textarea value={formData.perihal} onChange={e=>setFormData({...formData, perihal: e.target.value})} rows={3} placeholder="Perihal surat..." className="w-full px-5 py-4 premium-input rounded-2xl text-xs font-bold outline-none transition-all resize-y text-slate-900 dark:text-white" required></textarea>
+                  <textarea value={formData.perihal} onChange={e=>setFormData({...formData, perihal: e.target.value})} rows={3} placeholder="Perihal surat..." className="w-full px-4 sm:px-5 py-3.5 sm:py-4 premium-input rounded-2xl text-xs font-bold outline-none transition-all resize-y text-slate-900 dark:text-white" required></textarea>
                 </div>
               </form>
             </div>
 
-            <div className="p-6 border-t border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 flex gap-3 mt-auto shrink-0">
-              <button onClick={handleRequestCloseDocForm} disabled={isSubmitting} className="flex-1 py-4 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-2xl font-black uppercase text-[11px] tracking-widest hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+            <div className="p-4 sm:p-6 border-t border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 flex gap-2.5 sm:gap-3 mt-auto shrink-0">
+              <button onClick={handleRequestCloseDocForm} disabled={isSubmitting} className="flex-1 py-3.5 sm:py-4 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-2xl font-black uppercase text-[10px] sm:text-[11px] tracking-widest hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                 Batal
               </button>
-              <button type="submit" form="docFormAdmin" disabled={isSubmitting} className={`flex-[2] py-4 ${isSubmitting ? 'bg-slate-400 cursor-not-allowed' : 'bg-emerald-800 btn-3d'} text-white rounded-2xl font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-2 transition-all`}>
+              <button type="submit" form="docFormAdmin" disabled={isSubmitting} className={`flex-[2] py-3.5 sm:py-4 ${isSubmitting ? 'bg-slate-400 cursor-not-allowed' : 'bg-emerald-800 btn-3d'} text-white rounded-2xl font-black uppercase text-[10px] sm:text-[11px] tracking-widest flex items-center justify-center gap-2 transition-all`}>
                 <CheckCircle2 size={18} /> {isSubmitting ? 'Memproses...' : 'Simpan Data'}
               </button>
             </div>
@@ -3080,8 +3087,8 @@ export default function App() {
 
       {/* MODAL KONFIRMASI LOGOUT */}
       {showLogoutConfirm && (
-        <div className="fixed inset-0 z-[800] flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="glass-card p-8 rounded-3xl w-full max-w-sm shadow-2xl relative text-center border border-rose-500/30">
+        <div className="fixed inset-0 z-[800] flex items-center justify-center p-4 sm:p-6 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="glass-card p-6 sm:p-8 rounded-3xl w-full max-w-sm shadow-2xl relative text-center border border-rose-500/30">
             <div className="w-16 h-16 bg-rose-100 dark:bg-rose-900/30 rounded-full flex items-center justify-center mx-auto mb-4 shadow-inner">
               <AlertCircle size={32} className="text-rose-600 dark:text-rose-500"/>
             </div>
@@ -3098,25 +3105,25 @@ export default function App() {
 
       {/* MODAL PENGATURAN ADMIN */}
       {showSettings && (
-        <div className="fixed inset-0 z-[900] flex items-center justify-center p-4 sm:p-6 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="glass-card p-0 rounded-[3rem] w-full max-w-2xl shadow-[0_0_50px_rgba(245,158,11,0.15)] relative border border-orange-500/30 overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-300">
-            <div className="p-8 pb-6 border-b border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 relative shrink-0">
+        <div className="fixed inset-0 z-[900] flex items-center justify-center p-2.5 sm:p-6 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="glass-card p-0 rounded-3xl sm:rounded-[3rem] w-full max-w-2xl shadow-[0_0_50px_rgba(245,158,11,0.15)] relative border border-orange-500/30 overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[90vh] animate-in zoom-in-95 duration-300">
+            <div className="p-5 pb-4 sm:p-8 sm:pb-6 border-b border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 relative shrink-0">
               <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-orange-400 to-orange-600"></div>
-              <button onClick={() => setShowSettings(false)} className="absolute top-6 right-6 p-2 bg-slate-100 dark:bg-slate-800 rounded-full text-slate-500 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors">
+              <button onClick={() => setShowSettings(false)} className="absolute top-4 right-4 sm:top-6 sm:right-6 p-2 bg-slate-100 dark:bg-slate-800 rounded-full text-slate-500 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors">
                 <X size={18}/>
               </button>
-              <div className="flex items-center gap-4 mb-2">
-                <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-2xl flex items-center justify-center border border-orange-200 dark:border-orange-800/50">
-                   <Settings size={24} className="text-orange-600 dark:text-orange-500"/>
+              <div className="flex items-center gap-3 sm:gap-4 mb-1 sm:mb-2 pr-10">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-orange-100 dark:bg-orange-900/30 rounded-2xl flex items-center justify-center border border-orange-200 dark:border-orange-800/50 shrink-0">
+                   <Settings size={22} className="text-orange-600 dark:text-orange-500"/>
                 </div>
-                <div>
-                  <h2 className="text-xl font-black text-slate-900 dark:text-white leading-tight">Pengaturan Sistem</h2>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mt-1">Kelola Kredensial & Sistem</p>
+                <div className="min-w-0">
+                  <h2 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white leading-tight truncate">Pengaturan Sistem</h2>
+                  <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-slate-500 mt-1 truncate">Kelola Kredensial & Sistem</p>
                 </div>
               </div>
             </div>
 
-            <div data-lenis-prevent className="p-8 overflow-y-auto bg-white/30 dark:bg-slate-900/30 flex-1 space-y-8 hide-scrollbar">
+            <div data-lenis-prevent className="p-5 sm:p-8 overflow-y-auto bg-white/30 dark:bg-slate-900/30 flex-1 space-y-6 sm:space-y-8 hide-scrollbar">
               <div>
                 <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-4 flex items-center gap-2"><Shield size={16}/> Akun Super Admin</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -3210,8 +3217,8 @@ export default function App() {
               <div>
                 <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-4 flex items-center gap-2"><ImageIcon size={16}/> Background Website (Foto & Efek)</h3>
                 <div className="space-y-4">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <label className="px-4 py-3 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl text-[11px] font-black uppercase tracking-widest flex items-center gap-2 transition-colors shadow-sm">
+                  <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
+                    <label className="px-4 py-3 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl text-[10px] sm:text-[11px] font-black uppercase tracking-widest flex items-center gap-2 transition-colors shadow-sm">
                       <Upload size={15}/> Upload Foto Background
                       <input
                         type="file"
@@ -3247,7 +3254,7 @@ export default function App() {
                           ...prev,
                           bgSettings: { ...DEFAULT_BG_SETTINGS }
                         }))}
-                        className="px-4 py-3 bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400 hover:bg-rose-600 hover:text-white rounded-xl text-[11px] font-black uppercase tracking-widest flex items-center gap-2 transition-colors"
+                        className="px-4 py-3 bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400 hover:bg-rose-600 hover:text-white rounded-xl text-[10px] sm:text-[11px] font-black uppercase tracking-widest flex items-center gap-2 transition-colors"
                       >
                         <Trash2 size={15}/> Hapus Background
                       </button>
@@ -3380,8 +3387,8 @@ export default function App() {
               <div>
                 <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-4 flex items-center gap-2"><Shield size={16}/> Logo Website (Format PNG)</h3>
                 <div className="space-y-4">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <label className="px-4 py-3 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl text-[11px] font-black uppercase tracking-widest flex items-center gap-2 transition-colors shadow-sm">
+                  <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
+                    <label className="px-4 py-3 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl text-[10px] sm:text-[11px] font-black uppercase tracking-widest flex items-center gap-2 transition-colors shadow-sm">
                       <Upload size={15}/> Upload Logo (.PNG)
                       <input
                         type="file"
@@ -3425,7 +3432,7 @@ export default function App() {
                               image: prev.logoSettings.image
                             }
                           }))}
-                          className="px-4 py-3 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700 rounded-xl text-[11px] font-black uppercase tracking-widest flex items-center gap-2 transition-colors"
+                          className="px-4 py-3 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700 rounded-xl text-[10px] sm:text-[11px] font-black uppercase tracking-widest flex items-center gap-2 transition-colors"
                         >
                           <RotateCcw size={14}/> Reset Posisi
                         </button>
@@ -3435,7 +3442,7 @@ export default function App() {
                             ...prev,
                             logoSettings: { ...DEFAULT_LOGO_SETTINGS }
                           }))}
-                          className="px-4 py-3 bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400 hover:bg-rose-600 hover:text-white rounded-xl text-[11px] font-black uppercase tracking-widest flex items-center gap-2 transition-colors"
+                          className="px-4 py-3 bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400 hover:bg-rose-600 hover:text-white rounded-xl text-[10px] sm:text-[11px] font-black uppercase tracking-widest flex items-center gap-2 transition-colors"
                         >
                           <Trash2 size={15}/> Hapus Logo
                         </button>
@@ -3443,7 +3450,7 @@ export default function App() {
                     )}
                   </div>
                   <p className="text-[10px] font-bold text-slate-500">
-                    * Hanya menerima file berformat <span className="text-emerald-600 dark:text-emerald-400 font-black">.PNG</span> (mendukung latar transparan).
+                    Hanya menerima file berformat <span className="text-emerald-600 dark:text-emerald-400 font-black">.PNG</span> (mendukung latar transparan).
                   </p>
 
                   {settingsForm.logoSettings?.image && (
@@ -3628,8 +3635,8 @@ export default function App() {
               </div>
             </div>
 
-            <div className="p-6 border-t border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 flex gap-3 mt-auto shrink-0">
-              <button onClick={() => setShowSettings(false)} className="flex-1 py-4 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-2xl font-black uppercase text-[11px] tracking-widest hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors">
+            <div className="p-4 sm:p-6 border-t border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 flex gap-2.5 sm:gap-3 mt-auto shrink-0">
+              <button onClick={() => setShowSettings(false)} className="flex-1 py-3.5 sm:py-4 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-2xl font-black uppercase text-[10px] sm:text-[11px] tracking-widest hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors">
                 Batal
               </button>
               <button onClick={async () => {
@@ -3677,7 +3684,7 @@ export default function App() {
                 
                 showToast('Pengaturan Berhasil Disimpan ke Database!');
                 setShowSettings(false);
-              }} className="flex-[2] py-4 bg-orange-500 text-white rounded-2xl font-black uppercase text-[11px] tracking-widest btn-3d-orange flex items-center justify-center gap-2">
+              }} className="flex-[2] py-3.5 sm:py-4 bg-orange-500 text-white rounded-2xl font-black uppercase text-[10px] sm:text-[11px] tracking-widest btn-3d-orange flex items-center justify-center gap-2">
                 <CheckCircle2 size={18} /> Simpan Pengaturan
               </button>
             </div>
@@ -3687,8 +3694,8 @@ export default function App() {
 
       {/* MODAL KONFIRMASI GENERIC */}
       {confirmDialog.isOpen && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="glass-card p-8 rounded-3xl w-full max-w-sm shadow-2xl relative text-center border border-rose-500/30">
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 sm:p-6 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="glass-card p-6 sm:p-8 rounded-3xl w-full max-w-sm shadow-2xl relative text-center border border-rose-500/30">
             <div className="w-16 h-16 bg-rose-100 dark:bg-rose-900/30 rounded-full flex items-center justify-center mx-auto mb-4 shadow-inner">
               <AlertCircle size={32} className="text-rose-600 dark:text-rose-500"/>
             </div>
